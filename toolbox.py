@@ -372,8 +372,7 @@ def _data_to_df(file_paths: list, **kwargs) -> pd.DataFrame:
         for i in tqdm(range(len(df.columns)), bar_format=cst.BAR_FORMAT,
                       ascii=' |', colour='green', desc='Checking for NaN columns'):
             # If a column filled with NaN is found    
-            # if df.iloc[:, i][df.iloc[:, i] != 'N/A'].size == 0:
-            if pd.to_numeric(df.iloc[:, i], errors='coerce').isna().all():
+            if df.iloc[:, i][df.iloc[:, i] != 'N/A'].size == 0:
                 # Its index is saved to remove the corresponding header and column
                 idx_cols_to_drop.append(i)
                 idx_headers_to_drop.append(i)
