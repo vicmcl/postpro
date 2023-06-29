@@ -191,15 +191,13 @@ def aero_balance(run, z=-0.359, wb=2.96):
 
 # %% ===================================================================================================
 
-def bar_chart(
-    target, 
-    *,
-    rng: int = cst.RNG,
-    specdir: str = None,
-    probe: str = None,
-    **kwargs
-) -> None:
+def bar_chart(target, *,
+              rng: int = cst.RNG,
+              specdir: str = None,
+              probe: str = None,
+              **kwargs) -> None:
     
+    # Mutual exclusion of arguments
     if probe != None and specdir != None:
         raise ValueError('probe and specdir are mutually exclusive.')
     
@@ -216,45 +214,47 @@ def bar_chart(
     if len(run_dirs) == 0:
         raise ValueError(f"No run directory found with this list.")
     
-    # If at least one run found
+    # Else, print the table showing the project and runs
     else:
-        # Print the table showing the project and runs
         tb._print_header(run_dirs)
-        # Check whether a probe must be plotted
-        # to get the correct signature
-        # and choose whether to add a prefix to the legend
+        
+        # If no probe, legend not modified
         if probe == None:
-            sig_list = tb._get_sig_list(run_dirs, specdir=specdir,
-                                       graph_type='data', **kwargs)
             lgd = ''
+            sig_list = tb._get_sig_list(run_dirs,
+                                        specdir=specdir,
+                                        graph_type='data',
+                                        **kwargs)
+        # If probe, "Probe #" added to the legend 
         else:
-            sig_list = tb._get_sig_list(run_dirs, graph_type='probes', 
-                                       probe=probe, **kwargs)  
             lgd = f'Probe{space}'
+            sig_list = tb._get_sig_list(run_dirs,
+                                        graph_type='probes', 
+                                        probe=probe,
+                                        **kwargs)  
             
         # If there is data to plot after filtering the files and columns
         if sig_list:
+
             # Initialization
             handles, xlabel = [], []
             df_mean = pd.DataFrame()
-            # Create the figure
             _, ax = plt.subplots(figsize=(12, 27/4))
-            # Number of different runs and pp directories
             run_number = len({sig['run_id'] for sig in sig_list})
             pp_dir_number = len({sig['pp_dir'] for sig in sig_list})
-            # Positions of the xlabels 
             xpos = np.arange(len(sig_list))
-            # Format the ylabels
             ax.ticklabel_format(axis='y', style='sci', scilimits=(-1, 0))
             
             # Loop over the datasets to be plotted
             for sig in sig_list:
-                run_id, pp_dir, df = sig['run_id'], sig['pp_dir'], sig['df']
-                # Remove the Time column
-                df = df.iloc[:,1:]
+                run_id = sig['run_id'] 
+                pp_dir = sig['pp_dir']
+                df = sig['df'].iloc[:, 1:] # remove time column
+               
                 # Initialize a dict representing the mean data for a run/pp_dir combination
                 mean_dict = {'run': run_id, 'pp_dir': pp_dir}
                 mean_dict.update({col: df[col].tail(rng).mean() for col in df.columns})
+               
                 # Add a new row of mean values in df_mean for each run/pp_dir combination
                 df_mean = pd.concat([df_mean, pd.Series(mean_dict).to_frame().T])
                                
@@ -263,49 +263,53 @@ def bar_chart(
                 frmt_run = format_string(run_id)
                 frmt_pp_dir = format_string(pp_dir)
                 
-                # If multiple runs and pp_dir to plot, put them both in xlabel
+                # Format xlabel with pp_dir and/or run_id
                 if run_number > 1 and pp_dir_number > 1:  
                     frmt_legend = f'{marker}{frmt_pp_dir}{sep}run{frmt_run}{marker}'
-                # If multiple pp_dir only, put them in xlabel
                 elif pp_dir_number > 1:
                     frmt_legend = f'{marker}{frmt_pp_dir}{marker}'
-                # If one pp_dir and one or more runs, put them in xlabel
                 else:
                     frmt_legend = f'{marker}run{frmt_run}{marker}'
                 xlabel.append(frmt_legend)
                 
             # Set a multi index with the run/pp_dir combination
             df_mean = df_mean.set_index(['run', 'pp_dir'])
+
             # Set the width of the rectangles
             width = 1.5 / (len(xpos) * len(df.columns))
+
             # Loop over the columns to plot each series of data with their handle
             for i, col in enumerate(df_mean.columns):
                 handle = f'{marker}{lgd + col}{marker}'
                 handles.append(handle)
-                rect = ax.bar(xpos + i * width, df_mean[col], width=width, label=handle)
+                rect = ax.bar(xpos + i * width,
+                              df_mean[col],
+                              width = width,
+                              label = handle)
                 if 'fancyplot' in kwargs or 'fp' in kwargs:
-                    fmt = '${:.2e}$'
+                    frmt = '${:.2e}$'
                 else:
-                    fmt = '{:.2e}'
-                ax.bar_label(rect, padding=3, fmt=fmt)
+                    frmt = '{:.2e}'
+                ax.bar_label(rect, padding=3, fmt=frmt)
                 
             # Plot parameters
-            ax.legend(
-                loc='upper center',
-                bbox_to_anchor = [0.5, -0.1],
-                framealpha = 1,
-                frameon = False,
-                ncol = tb._ncol(handles),
-                borderaxespad=0,
-                fontsize=12,
-            )
+            ax.legend(loc='upper center',
+                      bbox_to_anchor = [0.5, -0.1],
+                      framealpha = 1,
+                      frameon = False,
+                      ncol = tb._ncol(handles),
+                      borderaxespad=0,
+                      fontsize=12)
+            
             # If a unit is specified for the y axis
             if 'unit' in kwargs:
                 ax.set_ylabel(f'{marker}{kwargs.get("unit")}{marker}', labelpad=10)
+
             # If a title is specified
             if 'title' in kwargs:
                 title = format_string(kwargs.get('title'))
                 ax.set_title(f'{marker}{title}{marker}', fontsize=20, fontweight='bold')
+                
             # Set the xticks at the center of the grouped rectangles
             ax.set_xticks(xpos + width * (len(df_mean.columns) - 1) / 2, xlabel, fontsize=15)
             
