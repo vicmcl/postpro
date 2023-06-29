@@ -4,7 +4,6 @@ import os
 import re
 import math
 import shutil
-import curses
 import matplotlib
 import warnings
 import pandas as pd
@@ -17,7 +16,6 @@ from file_read_backwards import FileReadBackwards
 from openpyxl import load_workbook
 from openpyxl.utils import get_column_letter
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
-from openpyxl.styles.numbers import BUILTIN_FORMATS
 
 # ANSI escape sequences of different colors for text output
 reset = "\033[0m"
