@@ -26,10 +26,10 @@ matplotlib.rcParams['lines.linewidth'] = 2.5
 matplotlib.rcParams['axes.linewidth'] = 1
 matplotlib.use('QtAgg')
 
-#matplotlib.use('qtagg')
 sns.set()
 
-# %% ===================================================================================================
+# %%
+# * ===================================================================================================
 
 def reload():
     module = importlib.import_module(__name__)
@@ -38,7 +38,8 @@ def reload():
     importlib.reload(cst)
     print('Reloaded.')
 
-# %% ===================================================================================================
+# %%
+# * ===================================================================================================
 
 def plot_data(target, *, specdir, csv_path, graph_type='data', probe: str = None, **kwargs):
     
@@ -50,7 +51,8 @@ def plot_data(target, *, specdir, csv_path, graph_type='data', probe: str = None
         target = [target]
     for tar in target:
         run_dirs += tb._find_runs(tar)
-    # If no run found
+
+    # ! If no run found
     if len(run_dirs) == 0:
         raise ValueError(f"No run found with {tb._bred}'{target}'{tb._reset}.")
     
@@ -60,7 +62,7 @@ def plot_data(target, *, specdir, csv_path, graph_type='data', probe: str = None
     sig_list = tb._get_sig_list(run_dirs, specdir=specdir,
                                 graph_type=graph_type, probe=probe, **kwargs)
 
-    # ========================== PLOT PARAMETERS ==========================
+    # * ========================== PLOT PARAMETERS ==========================
 
     # Initialize handles, runs list and figure
     if sig_list:
@@ -159,12 +161,13 @@ def plot_data(target, *, specdir, csv_path, graph_type='data', probe: str = None
         plt.tight_layout()
         plt.show()
 
-# ========================= PARTIAL FUNCTIONS =========================
+# * ========================= PARTIAL FUNCTIONS =========================
 
 plot_probes = partial(plot_data, specdir=None, graph_type='probes')
 plot_residuals = partial(plot_data, specdir=None, graph_type='residuals')
 
-# %% ===================================================================================================
+# %%
+# * ===================================================================================================
 
 def aero_balance(run, z=-0.359, wb=2.96):
     """ 
@@ -189,7 +192,8 @@ def aero_balance(run, z=-0.359, wb=2.96):
     aero_bal = (1 - ((Cm - z * Cd) / wb) / Cl) * 100
     return aero_bal
 
-# %% ===================================================================================================
+# %%
+# * ===================================================================================================
 
 def bar_chart(target, *,
               rng: int = cst.RNG,
@@ -197,7 +201,7 @@ def bar_chart(target, *,
               probe: str = None,
               **kwargs) -> None:
     
-    # Mutual exclusion of arguments
+    # ! Mutual exclusion of arguments
     if probe != None and specdir != None:
         raise ValueError('probe and specdir are mutually exclusive.')
     
@@ -210,7 +214,8 @@ def bar_chart(target, *,
         target = [target]
     for tar in target:
         run_dirs += tb._find_runs(tar)
-    # If no run found
+
+    # ! If no run found
     if len(run_dirs) == 0:
         raise ValueError(f"No run directory found with this list.")
     
@@ -319,7 +324,8 @@ def bar_chart(target, *,
             plt.tight_layout()
             plt.show()
 
-# %% ===================================================================================================
+# %%
+# * ===================================================================================================
 
 def plot_time(target, *, x='iterations', skipstart=10, **kwargs):
     col1 = cst.HOPIUM_PALETTE['hopium']
@@ -342,9 +348,11 @@ def plot_time(target, *, x='iterations', skipstart=10, **kwargs):
         target = [target]
     for tar in target:
         run_dirs += tb._find_runs(tar)
-    # If no run found
+
+    # ! If no run found
     if len(run_dirs) == 0:
         raise ValueError(f"No run directory found with this list.")
+    
     # If at least one run found
     else:
         time_pattern = re.compile(r'Time = ([\d.]+)s')
@@ -437,12 +445,17 @@ def plot_time(target, *, x='iterations', skipstart=10, **kwargs):
     fig.tight_layout()
     plt.show()
 
-# %% ===================================================================================================
+# %%
+# * ===================================================================================================
 
-def sim_time(run):  
+def sim_time(run):
+
+    # Get run and log files  
     run_path = tb._find_runs(run)[0]
     log_files = tb._find_logs(run_path)
     times_list = []
+
+    # For steady simulations
     if tb._issteady(run):
         for log in log_files:
             with FileReadBackwards(log, encoding='utf-8') as frb:
@@ -451,6 +464,8 @@ def sim_time(run):
                         stime = int(line.split()[-2])
                         break
             times_list.append(stime)
+    
+    # For unsteady simulations
     else:
         for log in log_files:
             with FileReadBackwards(log, encoding='utf-8') as frb:
@@ -462,7 +477,8 @@ def sim_time(run):
     total_time = sum(times_list)
     return total_time
     
-# %% ===================================================================================================
+# %%
+# * ===================================================================================================
 
 def stop_sim(run):
     """
@@ -496,7 +512,8 @@ def stop_sim(run):
     # Replace the original controlDict file by the temp file
     os.replace(temp_file_path, controlDict_path)
 
-# %% ===================================================================================================
+# %%
+# * ===================================================================================================
 
 def recap_sim(
     runs: str,
@@ -514,6 +531,7 @@ def recap_sim(
     except OSError as e:
         raise
     
+    # ! Mutual exclusion of arguments
     if probe != None and specdir != None:
         raise ValueError('probe and specdir are mutually exclusive.')
 
@@ -613,6 +631,8 @@ def recap_sim(
         existing_rows = pd.read_excel(xl_path)
         total_rows = existing_rows
         existing_cols = existing_rows.columns
+        
+    # ! Wrong path
     else:
         raise ValueError('The path to the Excel file does not exist.')
 
