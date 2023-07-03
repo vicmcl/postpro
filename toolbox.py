@@ -20,6 +20,7 @@ from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 # ANSI escape sequences of different colors for text output
 reset = "\033[0m"
 bold = "\033[1m"
+
 # Colors
 red = "\033[0;91m"
 green = "\033[0;92m"
@@ -28,6 +29,7 @@ blue = "\033[0;94m"
 magenta = "\033[0;38;5;199m"
 cyan = "\033[0;96m"
 white = "\033[0;97m"
+
 # Bold colors
 bgray = "\033[1;90m"
 bred = "\033[1;91m"
@@ -35,19 +37,8 @@ bgreen = "\033[1;92m"
 bblue = "\033[1;94m"
 bmag = "\033[1;38;5;199m"
 bcyan = "\033[1;96m"
-
-def _magnitude(vector):
-    """Returns the magnitude of a given vector.
-
-    Args:
-        vector (list): a multidimensional vector of data
-
-    Returns:
-        float: the magnitude of the vector
-    """
-    return math.sqrt(sum(float(element)**2 for element in vector))
     
-# %% ===================================================================================================
+# * ===================================================================================================
 
 def _find_logs(run_path: str) -> list:
     """
@@ -80,7 +71,7 @@ def _find_logs(run_path: str) -> list:
     # Return the log_files list.
     return filtered_log_files
 
-# %% ===================================================================================================
+# * ===================================================================================================
 
 def _issteady(run: str) -> bool:
     log_file = _find_logs(_find_runs(run)[0])[0]
@@ -92,7 +83,7 @@ def _issteady(run: str) -> bool:
                 else:
                     return False
                 
-# %% ===================================================================================================
+# * ===================================================================================================
 
 def _csv_postpro_to_df(csv_file: str = '/home/victorien/ofpostpro/postpro_directories.csv') -> pd.DataFrame:
     """
@@ -116,7 +107,7 @@ def _csv_postpro_to_df(csv_file: str = '/home/victorien/ofpostpro/postpro_direct
 
     return csv_df
 
-# %% ===================================================================================================
+# * ===================================================================================================
 
 def _ncol(handles: list) -> int:
 
@@ -139,8 +130,8 @@ def _ncol(handles: list) -> int:
     else:
         ncol = nhandles
     return ncol
-    
-# %% ===================================================================================================
+
+# * ===================================================================================================
 
 def _get_postpro_labels(database: pd.DataFrame, 
                         directory: str, 
@@ -164,7 +155,7 @@ def _get_postpro_labels(database: pd.DataFrame,
 
     return filtered_labels
 
-# %% ===================================================================================================
+# * ===================================================================================================
 
 def _label_names(fpath: str) -> dict:
     if 'probes' in fpath or 'residuals' in fpath:
@@ -210,14 +201,14 @@ def _label_names(fpath: str) -> dict:
         'postpro_labels': postpro_labels,
     }
 
-# %% ===================================================================================================
+# * ===================================================================================================
     
 def _find_paths(target: str, *,
                 dtype: str, 
                 root_dir: str = cst.DEFAULT_DIR,
                 **kwargs) -> list:
     
-    # ============================= VARIABLES =============================
+    # * ============================= VARIABLES =============================
     
     target_pattern = re.compile(target)
     stack = [os.path.abspath(root_dir)]
@@ -225,7 +216,7 @@ def _find_paths(target: str, *,
     pattern_excluded_dir = re.compile(cst.EXCLUDED_REGEX)
     pattern_postpro_dir = re.compile(cst.POSTPRO_REGEX)
  
-    # =============================== START ===============================
+    # * =============================== START ===============================
 
     while stack:
         dirpath: str = stack.pop()
@@ -290,12 +281,12 @@ def _find_paths(target: str, *,
     # Return the output_paths list.
     return sorted(output_paths)
 
-# PARTIAL FUNCTIONS ==================================================
+# * ========================= PARTIAL FUNCTIONS =========================
 
 _find_dirs = partial(_find_paths, dtype='dir')
 _find_files = partial(_find_paths, dtype='file')
 
-# %% ===================================================================================================
+# * ===================================================================================================
 
 def _find_runs(target: str, *,
                root_dir: str = cst.DEFAULT_DIR,
@@ -308,7 +299,7 @@ def _find_runs(target: str, *,
 
     return run_dirs
 
-# %% ===================================================================================================
+# * ===================================================================================================
 
 def _concat_data_files(file_paths: list) -> dict:
 
@@ -549,7 +540,7 @@ def _display_settings(**kwargs) -> tuple:
     
     return marker, space, underscore, sep
 
-# %% ===================================================================================================
+# * ===================================================================================================
 
 def _get_sig_list(run_dirs, *,
                   specdir: str = None,
@@ -564,8 +555,10 @@ def _get_sig_list(run_dirs, *,
         
         print(f'\n{bmag}# {run_id}{reset}')
         print('')
+        file_extension = '.dat'
 
         # * =========================== GENERIC DATA ===========================
+        
         
         if graph_type == 'data' and specdir != None:
             # Find the path to the pp directory specified in specdir
@@ -590,7 +583,7 @@ def _get_sig_list(run_dirs, *,
             if not os.path.isdir(pp):
                 raise ValueError(f"No residuals directory found")
             # Get the list of file in a given run 
-            file_paths = _find_files('.dat', root_dir=pp)
+            file_paths = _find_files(file_extension, root_dir=pp)
             # Create a df with the data found in the file at all the timesteps
             df = _data_to_df(file_paths, **kwargs)
             # If the columns specified are available
@@ -603,9 +596,9 @@ def _get_sig_list(run_dirs, *,
             pp = os.path.join(run_path, 'postProcessing/probes')
             if not os.path.isdir(pp):
                 raise ValueError(f"No probes directory found.")
-            
+            file_extension = probe
             # Get the list of probe files and associate each of them with a probe
-            file_paths = sorted(_find_files(probe, root_dir=pp))
+            file_paths = sorted(_find_files(file_extension, root_dir=pp))
             unique_probes = {os.path.basename(f) for f in file_paths}
             probe_paths = {p: [f for f in file_paths if f.endswith(p)] for p in unique_probes}
             
@@ -616,7 +609,7 @@ def _get_sig_list(run_dirs, *,
                     sig_list.append({'run_id': run_id, 'pp_dir': os.path.basename(p[0]), 'df': df})  
     return sig_list
 
-# %% ===================================================================================================
+# * ===================================================================================================
 
 def _get_unit(df,
               pp_dir,
@@ -638,7 +631,7 @@ def _get_unit(df,
 
     return unit
 
-# %% ===================================================================================================
+# * ===================================================================================================
 
 def _format_excel(file_path):
     # Load the Excel file
