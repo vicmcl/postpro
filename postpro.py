@@ -40,101 +40,97 @@ def reload():
 
 def plot_data(target, *, specdir, csv_path, graph_type='data', probe: str = None, **kwargs):
     
-    # Label formatting
+    # Initialization
     marker, space, underscore, sep = tb._display_settings(**kwargs)
-    # Find the run(s) path
-    run_dirs = []
+    csv_df = tb._csv_postpro_to_df(csv_path)
+    runs_dir = []
+    run_pp_df_list = []
+
+    # Get number of different runs and their dir
     if isinstance(target, str):
         target = [target]
     for tar in target:
-        run_dirs += tb._find_runs(tar)
+        runs_dir += tb._find_runs(tar)
+    runs_nb =  len({os.path.basename(r) for r in runs_dir})
 
     # ! If no run found
-    if len(run_dirs) == 0:
+    if len(runs_dir) == 0:
         raise ValueError(f"No run found with {tb._bred}'{target}'{tb._reset}.")
     
-    tb._print_header(run_dirs)
+    # Verbose
+    tb._print_header(runs_dir)
 
-    # Initialise the signature list 
-    sig_list = tb._get_sig_list(run_dirs, specdir=specdir,
-                                graph_type=graph_type, probe=probe, **kwargs)
+    # Set the figure and axis
+    handles = []
+    _, ax = plt.subplots(figsize=(12, 27/4))
+    ax.set_xlabel(f'{marker}Iterations{sep}Time{space}(s){marker}', labelpad=18, fontsize=15)
+    ax.ticklabel_format(axis='y', style='sci', scilimits=(0, 0))
+
+    # Loop over the runs
+    for run_path in runs_dir:
+
+        # Verbose
+        print(f'\n{tb.bmag}# {os.path.basename(run_path)}{tb.reset}')
+        print('')
+
+        # Get data from run
+        run_pp_df_list += [data for data in tb._get_data_from_run(run_path,
+                                                          specdir = specdir,
+                                                          graph_type = graph_type,
+                                                          probe = probe,
+                                                          **kwargs)]
 
     # * ========================== PLOT PARAMETERS ==========================
 
-    # Initialize handles, runs list and figure
-    if sig_list:
-        handles = []
-        runs_list = [sig['run_id'] for sig in sig_list]
-        _, ax = plt.subplots(figsize=(12, 27/4))
-        
-        # Write 'Time (s)' or 'Iterations' for the x label
-        if tb._issteady(runs_list[0]):
-            ax.set_xlabel(f'{marker}Iterations{marker}', labelpad=18, fontsize=15)
-        else:
-            ax.set_xlabel(f'{marker}Time{space}(s){marker}', labelpad=18, fontsize=15)
+    # Loop over all the DataFrames to plot    
+    for data in run_pp_df_list:
+        run_id, pp_dir, df = data.values()
 
-        # Tick label formatting for the y axis
-        ax.ticklabel_format(axis='y', style='sci', scilimits=(0, 0))
-        for sig in sig_list:
-            run_id, pp_dir, df = sig.values()
+        # If there are multiple runs, display runs, else display the column name
+        if runs_nb > 1: 
+            frmt_legend = f'{sep}{run_id}'
+        else: 
+            frmt_legend = ''
 
-            # If there are multiple runs only, display runs, else display the column name
-            if len(set(runs_list)) > 1:
-                frmt_legend = f'{sep}{run_id}'
+        # Set the unit on the y axis
+        if graph_type == 'data':
+            unit = tb._get_unit(df, pp_dir, csv_df)
+        elif graph_type == 'residuals':
+            unit = f'{marker}Residuals{marker}'
+            plt.yscale('log')
+            plt.grid(axis='y', linewidth=0.5)
+
+        # Format the column name displayed on the figure
+        for col in [c for c in df.columns if c != 'Time']:
+            format_string = lambda x: x.replace('_', underscore).replace(' ', space)
+            frmt_col = format_string(col)
+
+            # Display 'Probe #' for probe legend
+            if graph_type == 'probes':
+                frmt_col = f'Probe{space}{frmt_col}'
+
+                # If a unit is specified for the y axis, display it
+                if 'unit' in kwargs:
+                    unit = kwargs.get("unit")
+                else:
+                    if probe == 'p': unit = 'Pa'
+                    elif probe == 'k': unit = 'J/kg'
+                    else: unit = None
+
+            # Format legend handle and append the handles list
+            handle = f'{marker}{frmt_col}{frmt_legend}{marker}'
+            handles.append(handle)
+            
+            # Plot the curve with Time on x axis and the selected column on y axis
+            sns.lineplot(data=df, x='Time', y=col, label=handle, ax=ax)
+
+            # Set the unit as y label or hide y label if no unit
+            if unit == None:
+                plt.gca().set_ylabel(None)
             else: 
-                frmt_legend = ''
+                ax.set_ylabel(f"{marker}{unit}{marker}", labelpad=10, fontsize=15)
 
-            # Get the csv file giving the label names to display on the figure
-            csv_df = tb._csv_postpro_to_df(csv_path)
-
-            # Set the unit on the y axis for any data plot
-            if graph_type == 'data':
-                unit = tb._get_unit(df, pp_dir, csv_df)
-                ax.set_ylabel(unit)
-
-            # Format the column name displayed on the figure
-            for col in [c for c in df.columns if c != 'Time']:
-                format_string = lambda x: x.replace('_', underscore).replace(' ', space)
-                frmt_col = format_string(col)
-
-                # Display 'Probe #' for probe legend
-                if graph_type == 'probes':
-                    frmt_col = f'Probe{space}{frmt_col}'
-
-                    # If a unit is specified for the y axis, display it
-                    if 'unit' in kwargs:
-                        unit = kwargs.get("unit")
-                    else:
-                        if probe == 'p':
-                            unit = 'Pa'
-                        elif probe == 'k':
-                            unit = 'J/kg'
-                        else:
-                            unit = None
-
-                    # Set the uni on the y label
-                    ax.set_ylabel(f'{marker}{unit}{marker}', labelpad=10, fontsize=15)
-
-                # For residuals graphs, set the log scale, y label and hgrid 
-                elif graph_type == 'residuals':
-                    plt.yscale('log')
-                    unit = f'{marker}Residuals{marker}'
-                    ax.set_ylabel(unit, labelpad=10, fontsize=15)
-                    plt.grid(axis='y', linewidth=0.5)
-
-                # Format legend handle and append the handles list
-                handle = f'{marker}{frmt_col}{frmt_legend}{marker}'
-                handles.append(handle)
-
-                # Plot the curve with Time on x axis and the selected column on y axis
-                sns.lineplot(data=df, x='Time', y=col, label=handle, ax=ax)
-
-                # Hide ylabel if no unit
-                if unit == None:
-                    ax = plt.gca()
-                    ax.set_ylabel(None)
-
-        # Set columns in the legend
+        # Calculate columns number in the legend
         ncol = tb._ncol(handles)
 
         # Format the legend          
@@ -232,92 +228,89 @@ def bar_chart(target, *,
                                         graph_type='probes', 
                                         probe=probe,
                                         **kwargs)  
-            
-        # If there is data to plot after filtering the files and columns
-        if sig_list:
 
-            # Initialization
-            handles, xlabel = [], []
-            df_mean = pd.DataFrame()
-            _, ax = plt.subplots(figsize=(12, 27/4))
-            run_number = len({sig['run_id'] for sig in sig_list})
-            pp_dir_number = len({sig['pp_dir'] for sig in sig_list})
-            xpos = np.arange(len(sig_list))
-            ax.ticklabel_format(axis='y', style='sci', scilimits=(-1, 0))
+        # Initialization
+        handles, xlabel = [], []
+        df_mean = pd.DataFrame()
+        _, ax = plt.subplots(figsize=(12, 27/4))
+        run_number = len({sig['run_id'] for sig in sig_list})
+        pp_dir_number = len({sig['pp_dir'] for sig in sig_list})
+        xpos = np.arange(len(sig_list))
+        ax.ticklabel_format(axis='y', style='sci', scilimits=(-1, 0))
+        
+        # Loop over the datasets to be plotted
+        for sig in sig_list:
+            run_id = sig['run_id'] 
+            pp_dir = sig['pp_dir']
+            df = sig['df'].iloc[:, 1:] # remove time column
             
-            # Loop over the datasets to be plotted
-            for sig in sig_list:
-                run_id = sig['run_id'] 
-                pp_dir = sig['pp_dir']
-                df = sig['df'].iloc[:, 1:] # remove time column
-               
-                # Initialize a dict representing the mean data for a run/pp_dir combination
-                mean_dict = {'run': run_id, 'pp_dir': pp_dir}
-                mean_dict.update({col: df[col].tail(rng).mean() for col in df.columns})
-               
-                # Add a new row of mean values in df_mean for each run/pp_dir combination
-                df_mean = pd.concat([df_mean, pd.Series(mean_dict).to_frame().T])
-                               
-                # Format strings for LateX font
-                format_string = lambda x: x.replace('_', underscore).replace(' ', space)
-                frmt_run = format_string(run_id)
-                frmt_pp_dir = format_string(pp_dir)
-                
-                # Format xlabel with pp_dir and/or run_id
-                if run_number > 1 and pp_dir_number > 1:  
-                    frmt_legend = f'{marker}{frmt_pp_dir}{sep}run{frmt_run}{marker}'
-                elif pp_dir_number > 1:
-                    frmt_legend = f'{marker}{frmt_pp_dir}{marker}'
-                else:
-                    frmt_legend = f'{marker}run{frmt_run}{marker}'
-                xlabel.append(frmt_legend)
-                
-            # Set a multi index with the run/pp_dir combination
-            df_mean = df_mean.set_index(['run', 'pp_dir'])
+            # Initialize a dict representing the mean data for a run/pp_dir combination
+            mean_dict = {'run': run_id, 'pp_dir': pp_dir}
+            mean_dict.update({col: df[col].tail(rng).mean() for col in df.columns})
+            
+            # Add a new row of mean values in df_mean for each run/pp_dir combination
+            df_mean = pd.concat([df_mean, pd.Series(mean_dict).to_frame().T])
+                            
+            # Format strings for LateX font
+            format_string = lambda x: x.replace('_', underscore).replace(' ', space)
+            frmt_run = format_string(run_id)
+            frmt_pp_dir = format_string(pp_dir)
+            
+            # Format xlabel with pp_dir and/or run_id
+            if run_number > 1 and pp_dir_number > 1:  
+                frmt_legend = f'{marker}{frmt_pp_dir}{sep}run{frmt_run}{marker}'
+            elif pp_dir_number > 1:
+                frmt_legend = f'{marker}{frmt_pp_dir}{marker}'
+            else:
+                frmt_legend = f'{marker}run{frmt_run}{marker}'
+            xlabel.append(frmt_legend)
+            
+        # Set a multi index with the run/pp_dir combination
+        df_mean = df_mean.set_index(['run', 'pp_dir'])
 
-            # Set the width of the rectangles
-            width = 1.5 / (len(xpos) * len(df.columns))
+        # Set the width of the rectangles
+        width = 1.5 / (len(xpos) * len(df.columns))
 
-            # Loop over the columns to plot each series of data with their handle
-            for i, col in enumerate(df_mean.columns):
-                handle = f'{marker}{lgd + col}{marker}'
-                handles.append(handle)
-                rect = ax.bar(xpos + i * width,
-                              df_mean[col],
-                              width = width,
-                              label = handle)
-                if 'fancyplot' in kwargs or 'fp' in kwargs:
-                    frmt = '${:.2e}$'
-                else:
-                    frmt = '{:.2e}'
-                ax.bar_label(rect, padding=3, fmt=frmt)
-                
-            # Plot parameters
-            ax.legend(loc='upper center',
-                      bbox_to_anchor = [0.5, -0.1],
-                      framealpha = 1,
-                      frameon = False,
-                      ncol = tb._ncol(handles),
-                      borderaxespad=0,
-                      fontsize=12)
+        # Loop over the columns to plot each series of data with their handle
+        for i, col in enumerate(df_mean.columns):
+            handle = f'{marker}{lgd + col}{marker}'
+            handles.append(handle)
+            rect = ax.bar(xpos + i * width,
+                            df_mean[col],
+                            width = width,
+                            label = handle)
+            if 'fancyplot' in kwargs or 'fp' in kwargs:
+                frmt = '${:.2e}$'
+            else:
+                frmt = '{:.2e}'
+            ax.bar_label(rect, padding=3, fmt=frmt)
             
-            # If a unit is specified for the y axis
-            if 'unit' in kwargs:
-                ax.set_ylabel(f'{marker}{kwargs.get("unit")}{marker}', labelpad=10)
+        # Plot parameters
+        ax.legend(loc='upper center',
+                    bbox_to_anchor = [0.5, -0.1],
+                    framealpha = 1,
+                    frameon = False,
+                    ncol = tb._ncol(handles),
+                    borderaxespad=0,
+                    fontsize=12)
+        
+        # If a unit is specified for the y axis
+        if 'unit' in kwargs:
+            ax.set_ylabel(f'{marker}{kwargs.get("unit")}{marker}', labelpad=10)
 
-            # If a title is specified
-            if 'title' in kwargs:
-                title = format_string(kwargs.get('title'))
-                ax.set_title(f'{marker}{title}{marker}', fontsize=20, fontweight='bold')
-                
-            # Set the xticks at the center of the grouped rectangles
-            ax.set_xticks(xpos + width * (len(df_mean.columns) - 1) / 2, xlabel, fontsize=15)
+        # If a title is specified
+        if 'title' in kwargs:
+            title = format_string(kwargs.get('title'))
+            ax.set_title(f'{marker}{title}{marker}', fontsize=20, fontweight='bold')
             
-            # Verbose
-            print('\nDisplaying the figure...\n')
-            
-            plt.tight_layout()
-            plt.show()
+        # Set the xticks at the center of the grouped rectangles
+        ax.set_xticks(xpos + width * (len(df_mean.columns) - 1) / 2, xlabel, fontsize=15)
+        
+        # Verbose
+        print('\nDisplaying the figure...\n')
+        
+        plt.tight_layout()
+        plt.show()
 
 # * ===================================================================================================
 

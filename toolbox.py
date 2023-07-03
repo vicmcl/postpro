@@ -551,70 +551,57 @@ def _display_settings(**kwargs) -> tuple:
 
 # %% ===================================================================================================
 
-def _get_sig_list(run_dirs, *,
-                  specdir: str = None,
-                  graph_type: str = 'data',
-                  probe: str = None,
-                  **kwargs) -> list:
+def _get_data_from_run(run_path, *,
+                       specdir: str = None,
+                       graph_type: str = 'data',
+                       probe: str = None,
+                       **kwargs) -> list:
     
-    # Initialise the signature list 
-    sig_list = []
-    for run_path in run_dirs:
-        run_id = os.path.basename(run_path)
-        
-        print(f'\n{bmag}# {run_id}{reset}')
-        print('')
+    run_id = os.path.basename(run_path)
+    file_extension = '.dat'
+    pp_dirs = []
 
-        # * =========================== GENERIC DATA ===========================
-        
-        if graph_type == 'data' and specdir != None:
-            # Find the path to the pp directory specified in specdir
-            pp_dirs = _find_dirs(specdir, root_dir=run_path)
-            # If one or more pp directories exist
-            if not pp_dirs:
-                raise ValueError(f"No directory found in postProcessing with specdir={bred}'{specdir}'{reset}.")
-            # Loop over the pp directories
-            for pp in pp_dirs:
-                # Get the list of file in a given run 
-                file_paths = _find_files('.dat', root_dir=pp)
-                # Create a df with the data found in the file at all the timesteps
-                df = _data_to_df(file_paths, **kwargs)
-                # If the columns specified are available
-                if not df.empty:
-                    sig_list.append({'run_id': run_id, 'pp_dir': os.path.basename(pp), 'df': df})       
+    # Generic data
+    if graph_type == 'data' and specdir != None:
+        pp_dirs = _find_dirs(specdir, root_dir=run_path)
+        error_dir = specdir
 
-        # * ============================= RESIDUALS =============================
-            
-        elif graph_type == 'residuals':
-            pp = os.path.join(run_path, 'postProcessing/residuals')
-            if not os.path.isdir(pp):
-                raise ValueError(f"No residuals directory found")
-            # Get the list of file in a given run 
-            file_paths = _find_files('.dat', root_dir=pp)
-            # Create a df with the data found in the file at all the timesteps
-            df = _data_to_df(file_paths, **kwargs)
-            # If the columns specified are available
-            if not df.empty:
-                sig_list.append({'run_id': run_id, 'pp_dir': 'residuals', 'df': df})
+    # Residuals
+    elif graph_type == 'residuals':
+        pp_dirs = [os.path.join(run_path, 'postProcessing/residuals')]
+        error_dir = "residuals"
 
-        # * ============================== PROBES ==============================
+    # Probes
+    elif graph_type == 'probes' and probe != None:
+        pp_dirs = [os.path.join(run_path, 'postProcessing/probes')]
+        file_extension = probe
+        error_dir = "probes"
+
+    # Loop over the postpro dirs
+    for pp in pp_dirs:
+
+        # ! If wrong path
+        if not os.path.isdir(pp):
+            warnings.warn(f'No {bred}{error_dir}{reset} directory found.', UserWarning)
+
+        # Get the list of file in a given run and the unique basename(s)
+        file_paths = sorted(_find_files(file_extension, root_dir=pp))
+        print(file_paths)
+        basenames = {os.path.basename(f) for f in file_paths}
+
+        # ! More than one basename found
+        if len(basenames) > 1:
+            raise ValueError(f"More than one data type selected: {', '.join(bn for bn in basenames)}")
         
-        elif graph_type == 'probes' and probe != None:
-            pp = os.path.join(run_path, 'postProcessing/probes')
-            if not os.path.isdir(pp):
-                raise ValueError(f"No probes directory found.")
-            
-            # Get the list of probe files and associate each of them with a probe
-            file_paths = sorted(_find_files(probe, root_dir=pp))
-            unique_probes = {os.path.basename(f) for f in file_paths}
-            probe_paths = {p: [f for f in file_paths if f.endswith(p)] for p in unique_probes}
-            
-            # Create a df with the data found in the file at all the timesteps for each probe
-            for p in probe_paths.values():
-                df = _data_to_df(file_paths, **kwargs)
-                if not df.empty:
-                    sig_list.append({'run_id': run_id, 'pp_dir': os.path.basename(p[0]), 'df': df})  
-    return sig_list
+        # Yield a DataFrame and the run and postpro dir info
+        df = _data_to_df(file_paths, **kwargs)
+        if not df.empty:
+            if file_extension == '.dat':
+                yield {'run_id': run_id, 'pp_dir': os.path.basename(pp) , 'df': df}
+            else:
+                yield {'run_id': run_id, 'pp_dir': os.path.basename(file_paths[0]) , 'df': df}
+        else:
+            continue
 
 # %% ===================================================================================================
 
