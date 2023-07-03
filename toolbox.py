@@ -287,15 +287,15 @@ def _find_paths(target: str, *,
                 # If item is a dir, add it to the stack
                 else:
                     stack.append(entry.path)
-    # Return the output_paths list.
+    
     return sorted(output_paths)
 
-# PARTIAL FUNCTIONS ==================================================
+# * ========================= PARTIAL FUNCTIONS =========================
 
 _find_dirs = partial(_find_paths, dtype='dir')
 _find_files = partial(_find_paths, dtype='file')
 
-# %% ===================================================================================================
+# * ===================================================================================================
 
 def _find_runs(target: str, *,
                root_dir: str = cst.DEFAULT_DIR,
@@ -308,167 +308,239 @@ def _find_runs(target: str, *,
 
     return run_dirs
 
-# %% ===================================================================================================
+# * ===================================================================================================
 
 def _concat_data_files(file_paths: list) -> dict:
-
-    if len(file_paths) > 0:
+        
         data_list = []
+
+        # Sort file paths 
         if all(f.split('/')[-2].isdigit() for f in file_paths):
             timesteps = [int(f.split('/')[-2]) for f in file_paths]
         else:
             timesteps = [float(f.split('/')[-2]) for f in file_paths]
+        sorted_file_paths = [x for _, x in sorted(zip(timesteps, file_paths), key=lambda pair: pair[0])]
 
-        sorted_file_paths = [x for _, x in sorted(
-            zip(timesteps, file_paths), key=lambda pair: pair[0])]
+        # Get columns name
         cols = _label_names(sorted_file_paths[0])['postpro_labels']
+
+        # Loop over the file paths
         for fpath in sorted_file_paths:
             pp_dir = fpath.split('/')[-3]
             timestep = fpath.split('/')[-2]
+
+            # Parse file
             with open(fpath, 'r') as f:
+                for line in f:
+                    if line.startswith('# Time'):
+                        break
+
+                # Verbose
                 if 'probe' in fpath:
                     print(f'Parsing {bmag}probe {os.path.basename(fpath)}{reset} at timestep {bmag}{timestep}{reset}:')
                 else:
                     print(f'Parsing {bmag}{pp_dir}{reset} at timestep {bmag}{timestep}{reset}:')
-                for line in f:
-                    if line.startswith('# Time'):
-                        break
+                
+                # Set progress bar
                 pbar = tqdm(total=0, unit=' lines')
                 for line in f:
                     data = tuple(line.split())
                     data_list.append(data)
                     pbar.update(1)
                 pbar.close()
+
+                #Verbose
                 print('File parsed.')
+        
+        # If at least 2 files are concatenated, display their start timestep
         if len(file_paths) > 1:
             fmt_sep = f"{reset}, {bmag}"
             fmt_timesteps = f"{fmt_sep}".join(sorted([str(i) for i in timesteps]))
             print(f'Concatenated files at timesteps {bmag}{fmt_timesteps}{reset}.')
+
+        return data_list, cols
+
+# * ===================================================================================================
+
+def _remove_NaN_columns(concat_data: tuple) -> pd.DataFrame:
+
+    data, headers = concat_data
         
-        return {'headers': cols, 'concat_data': data_list}
+    # Check for NaN columns to remove
+    # Initialize the indexes of headers and columns to drop
+    idx_headers_to_drop = []
+    idx_cols_to_drop = []
 
-# %% ===================================================================================================
-
-def _data_to_df(file_paths: list, **kwargs) -> pd.DataFrame:
+    # DataFrame created without the headers
+    df = pd.DataFrame(data)
     
-    # Concatenate all the files, ordered by timestep
-    data = _concat_data_files(file_paths)
-
-    # If there is concatenated data
-    if data != None:
-        headers = data.get('headers')
-        concat_data = data.get('concat_data')
-                  
-        # Check for NaN columns to remove
-        # Initialize the indexes of headers and columns to drop
-        idx_headers_to_drop = []
-        idx_cols_to_drop = []
-        # DataFrame created without the headers
-        df = pd.DataFrame(concat_data)
+    # Loop over the columns of the DataFrame
+    for i in tqdm(range(len(df.columns)),
+                    bar_format=cst.BAR_FORMAT,
+                    ascii=' |',
+                    colour='green',
+                    desc='Checking for NaN columns'):
         
-        # Loop over the columns of the DataFrame
-        for i in tqdm(range(len(df.columns)), bar_format=cst.BAR_FORMAT,
-                      ascii=' |', colour='green', desc='Checking for NaN columns'):
-            # If a column filled with NaN is found    
-            if df.iloc[:, i][df.iloc[:, i] != 'N/A'].size == 0:
-                # Its index is saved to remove the corresponding header and column
-                idx_cols_to_drop.append(i)
-                idx_headers_to_drop.append(i)
-                # If the velocity vector is NaN, 
-                # the Ux, Uy and Uz headers must be removed
-                if 'Uy' in headers[i+1] or 'Uz' in headers[i+1]:
-                    idx_headers_to_drop.append(i+1)
-                    if 'Uz' in headers[i+2]:
-                        idx_headers_to_drop.append(i+2)
-        # If any column must be dropped
-        if idx_cols_to_drop:
-            print('NaN column(s) removed.')
-        # If no column of NaN is found.
+        # If a column filled with NaN is found    
+        if df.iloc[:, i][df.iloc[:, i] != 'N/A'].size == 0:
+
+            # Its index is saved to remove the corresponding header and column
+            idx_cols_to_drop.append(i)
+            idx_headers_to_drop.append(i)
+
+            # If the velocity vector is NaN, 
+            # the Ux, Uy and Uz headers must be removed
+            if 'Uy' in headers[i+1] or 'Uz' in headers[i+1]:
+                idx_headers_to_drop.append(i+1)
+                if 'Uz' in headers[i+2]:
+                    idx_headers_to_drop.append(i+2)
+
+    # Verbose
+    if idx_cols_to_drop:
+        print('NaN column(s) removed.')
+    else:
+        print('No column to remove.')
+
+    # Associate the columns with their headers
+    df = df.drop(idx_cols_to_drop, axis=1)
+    headers = [val for i, val in enumerate(headers) if i not in idx_headers_to_drop]
+    df.columns = headers
+    
+    return df 
+
+# * ===================================================================================================
+    
+def _remove_NaN_cells(df: pd.DataFrame) -> pd.DataFrame:
+
+    # Check for NaN cells to remove
+    tqdm.pandas(bar_format=cst.BAR_FORMAT,
+                ascii=' |',
+                colour='green',
+                desc='Checking for remaining NaN cells')
+    
+    # Save the initial number of rows in the DataFrame
+    previous_size = df.size
+
+    # Drop the rows with one or more NaN or None cells
+    df = df[~df.progress_apply(lambda x: x.isin(['N/A', None])).any(axis=1)]
+
+    # Verbose
+    if df.size != previous_size:
+        print('NaN cell(s) removed.')
+    else:
+        print('No cell to remove.')
+
+    return df
+
+# * ===================================================================================================
+
+def _remove_parenthesis(df: pd.DataFrame) -> pd.DataFrame:
+
+    # Check for parenthesis to remove
+    cols_with_parenthesis = [col for col in df.columns if df[col][1].startswith('(') or df[col][1].endswith(')')]
+
+    # If one or more columns contain cells with parenthesis
+    if len(cols_with_parenthesis) > 0:
+
+        # Progress bar setup
+        tqdm.pandas(bar_format=cst.BAR_FORMAT,
+                    colour='green',
+                    ascii=' |',
+                    desc='Removing parenthesis')
+        
+        # Remove the parenthesis in the identified columns
+        df[cols_with_parenthesis] = df[cols_with_parenthesis].progress_apply(lambda x: x.str.replace(r'[()]', '', regex=True))
+
+        # Verbose
+        print('Parenthesis removed.')
+
+    return df
+
+# * ===================================================================================================
+
+def _filter_data(df: pd.DataFrame, **kwargs) -> pd.DataFrame:
+
+    if kwargs:
+        print('ok')
+    # If one or more columns are specified by the user
+    if 'usecols' in kwargs:
+        usecols = kwargs.get('usecols')
+        if isinstance(usecols, str):
+            usecols = [usecols]
+
+        # Filter the columns to keep
+        cols_found = [col for col in df.columns for u in usecols if re.search(re.compile(u), col)]
+        cols = ['Time'] + cols_found
+
+        # If only the 'Time' column remains -> the columns specified do not exist
+        if len(cols) == 1:
+            raise ValueError(f"{bred}'{','.join(usecols)}'{reset}: column(s) not found.")
+        
+        # If at least one column of data is found
         else:
-            print('No column to remove.')
-        # Keep only the headers that correspond to a column with data
-        headers = [val for i, val in enumerate(headers) if i not in idx_headers_to_drop]
-        # Drop the columns of NaN
-        df = df.drop(idx_cols_to_drop, axis=1)
-        # Associate the columns with their headers
-        df.columns = headers
-        
-        # If one or more columns are specified by the user
-        if 'usecols' in kwargs:
-            usecols = kwargs.get('usecols')
-            if isinstance(usecols, str):
-                usecols = [usecols]
-            # Filter the columns to keep
-            cols_found = [col for col in df.columns for u in usecols if re.search(re.compile(u), col)]
-            cols = ['Time'] + cols_found
-            # If only the 'Time' column remains,
-            # it means that the columns specified do not exist
-            if len(cols) == 1:
-                raise ValueError(f"{bred}'{','.join(usecols)}'{reset}: column(s) not found.")
-            # If at least one column of data is found
-            else:
-                # If not all the specified columns are found
-                if len(cols) < len(usecols) + 1:
-                    cols_not_found = [col for col in df.columns if col not in cols]
-                    warnings.warn(f"{bred}'{','.join(cols_not_found)}'{reset}: column(s) not found.",
-                                  UserWarning)
-                # Filter the specified columns that are found
-                df = df.loc[:, cols]
-                print(f'Columns {bmag}{f"{reset}, {bmag}".join(df.columns[1:])}{reset} selected.')
-        
-        # Check for NaN cells to remove
-        tqdm.pandas(bar_format=cst.BAR_FORMAT, ascii=' |',
-                    colour='green', desc='Checking for remaining NaN cells')
-        # Store the number of rows in the DataFrame
-        size = df.size
-        # Drop the rows with one or more NaN or None cells
-        df = df[~df.progress_apply(lambda x: x.isin(['N/A', None])).any(axis=1)]
-        # If rows have been dropped
-        if df.size != size:
-            print('NaN cell(s) removed.')
-        # If all the rows are kept
-        else:
-            print('No cell to remove.')
-            
-        # Check for parenthesis to remove
-        cols_with_parenthesis = [col for col in df.columns if df[col][1].startswith('(') or df[col][1].endswith(')')]
-        # If one or more columns contain cells with parenthesis
-        if len(cols_with_parenthesis) > 0:
-            # Progress bar parameters
-            tqdm.pandas(bar_format=cst.BAR_FORMAT, colour='green',
-                        ascii=' |', desc='Removing parenthesis')
-            # Remove the parenthesis in the identified columns
-            df[cols_with_parenthesis] = df[cols_with_parenthesis].progress_apply(lambda x: x.str.replace(r'[()]', '', regex=True))
-            print('Parenthesis removed.')
+            # If not all the specified columns are found
+            if len(cols) < len(usecols) + 1:
+                cols_not_found = [col for col in df.columns if col not in cols]
+                warnings.warn(f"{bred}'{','.join(cols_not_found)}'{reset}: column(s) not found.", UserWarning)
 
-        # If there are iterations to be skipped at the beginning or the end of the simulation
-        if 'skipstart' in kwargs:
-            skipstart = kwargs.get('skipstart')
-            df = df.iloc[skipstart:,:]
-            print(f"First {skipstart} iterations skipped.")
-        if 'skipend' in kwargs:
-            skipend = kwargs.get('skipend')
-            df = df.iloc[:-skipend, :]
-            print(f"Last {skipend} iterations skipped.") 
+            # Filter the specified columns that are found
+            df = df.loc[:, cols]
+            print(f'Columns {bmag}{f"{reset}, {bmag}".join(df.columns[1:])}{reset} selected.')
+
+    # If there are iterations to skip at the beginning or the end of the simulation
+    if 'skipstart' in kwargs:
+        skipstart = kwargs.get('skipstart')
+        df = df.iloc[skipstart:,:]
+        print(f"First {skipstart} iterations skipped.") # Verbose
+    if 'skipend' in kwargs:
+        skipend = kwargs.get('skipend')
+        df = df.iloc[:-skipend, :]
+        print(f"Last {skipend} iterations skipped.") # Verbose
+
+    return df
         
-        # Progress bar parameters
-        tqdm.pandas(bar_format=cst.BAR_FORMAT, colour='green',
-                    ascii=' |', desc='Converting data to float')
-        # If the 'Time' column contains strings representing integers
-        if df.iloc[2, 0].isdigit():
-            # The 'Time' column is converted to integer
-            df['Time'] = df['Time'].apply(int)
-            # Convert all the data to floats, except the 'Time' column
-            df.iloc[:, 1:] = df.iloc[:, 1:].progress_apply(lambda x: x.astype(float))
+# * ===================================================================================================
+        
+def _convert_numerical_data(df: pd.DataFrame) -> pd.DataFrame:
 
-        # If the 'Time' column contains strings representing floats,
-        # convert all the data to floats
-        else:
-            df = df.progress_apply(lambda x: x.astype(float))
-        print('Data converted.')
+    # Progress bar setup
+    tqdm.pandas(bar_format=cst.BAR_FORMAT,
+                colour='green',
+                ascii=' |',
+                desc='Converting data to float')
 
-        return df
-# %% ===================================================================================================
+    # If the 'Time' column contains strings representing integers
+    if df.iloc[2, 0].isdigit():
+
+        # The 'Time' column is converted to integer
+        df['Time'] = df['Time'].apply(int)
+
+        # Convert all the data to floats, except the 'Time' column
+        df.iloc[:, 1:] = df.iloc[:, 1:].progress_apply(lambda x: x.astype(float))
+
+    # If the 'Time' column contains strings representing floats, convert all the data to floats
+    else:
+        df = df.progress_apply(lambda x: x.astype(float))
+
+    # Verbose
+    print('Data converted.')
+
+    return df
+
+# * ===================================================================================================
+
+def _files_to_df(file_paths: list, **kwargs) -> pd.DataFrame:
+
+    out = _convert_numerical_data(
+              _filter_data(
+                  _remove_parenthesis(
+                      _remove_NaN_cells(
+                          _remove_NaN_columns(
+                              _concat_data_files(file_paths)))), **kwargs))
+    
+    return out
+
+# * ===================================================================================================
 
 def _print_header(run_dirs: list) -> None:
     
@@ -586,7 +658,6 @@ def _get_data_from_run(run_path, *,
 
         # Get the list of file in a given run and the unique basename(s)
         file_paths = sorted(_find_files(file_extension, root_dir=pp))
-        print(file_paths)
         basenames = {os.path.basename(f) for f in file_paths}
 
         # ! More than one basename found
@@ -594,7 +665,7 @@ def _get_data_from_run(run_path, *,
             raise ValueError(f"More than one data type selected: {', '.join(bn for bn in basenames)}")
         
         # Yield a DataFrame and the run and postpro dir info
-        df = _data_to_df(file_paths, **kwargs)
+        df = _files_to_df(file_paths, **kwargs)
         if not df.empty:
             if file_extension == '.dat':
                 yield {'run_id': run_id, 'pp_dir': os.path.basename(pp) , 'df': df}
