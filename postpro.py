@@ -1,4 +1,3 @@
-# %%
 import os
 import re
 import socket
@@ -28,7 +27,6 @@ matplotlib.use('QtAgg')
 
 sns.set()
 
-# %%
 # * ===================================================================================================
 
 def reload():
@@ -38,7 +36,6 @@ def reload():
     importlib.reload(cst)
     print('Reloaded.')
 
-# %%
 # * ===================================================================================================
 
 def plot_data(target, *, specdir, csv_path, graph_type='data', probe: str = None, **kwargs):
@@ -166,7 +163,6 @@ def plot_data(target, *, specdir, csv_path, graph_type='data', probe: str = None
 plot_probes = partial(plot_data, specdir=None, graph_type='probes')
 plot_residuals = partial(plot_data, specdir=None, graph_type='residuals')
 
-# %%
 # * ===================================================================================================
 
 def aero_balance(run, z=-0.359, wb=2.96):
@@ -192,7 +188,6 @@ def aero_balance(run, z=-0.359, wb=2.96):
     aero_bal = (1 - ((Cm - z * Cd) / wb) / Cl) * 100
     return aero_bal
 
-# %%
 # * ===================================================================================================
 
 def bar_chart(target, *,
@@ -324,7 +319,6 @@ def bar_chart(target, *,
             plt.tight_layout()
             plt.show()
 
-# %%
 # * ===================================================================================================
 
 def plot_time(target, *, x='iterations', skipstart=10, **kwargs):
@@ -445,7 +439,6 @@ def plot_time(target, *, x='iterations', skipstart=10, **kwargs):
     fig.tight_layout()
     plt.show()
 
-# %%
 # * ===================================================================================================
 
 def sim_time(run):
@@ -455,29 +448,24 @@ def sim_time(run):
     log_files = tb._find_logs(run_path)
     times_list = []
 
-    # For steady simulations
-    if tb._issteady(run):
-        for log in log_files:
-            with FileReadBackwards(log, encoding='utf-8') as frb:
-                for line in frb:
-                    if line.startswith('ExecutionTime'):
-                        stime = int(line.split()[-2])
-                        break
-            times_list.append(stime)
+    # Parsing log files to find the line containing the last timestep
+    for log in log_files: 
+        with FileReadBackwards(log, encoding='utf-8') as frb:
+            for line in frb:
+                # Steady simulations
+                if line.startswith('ExecutionTime') and tb._issteady(run):
+                    stime = int(line.split()[-2])
+                    break
+                # Unsteady simulations
+                elif line.startswith('Time') and not tb._issteady(run):
+                    stime = float(line.split()[-1][:-1])
+                    break
+        times_list.append(stime)
     
-    # For unsteady simulations
-    else:
-        for log in log_files:
-            with FileReadBackwards(log, encoding='utf-8') as frb:
-                for line in frb:
-                    if line.startswith('Time'):
-                        stime = float(line.split()[-1][:-1])
-                        break
-            times_list.append(stime)
+    # Total time calculation
     total_time = sum(times_list)
     return total_time
-    
-# %%
+
 # * ===================================================================================================
 
 def stop_sim(run):
@@ -512,20 +500,18 @@ def stop_sim(run):
     # Replace the original controlDict file by the temp file
     os.replace(temp_file_path, controlDict_path)
 
-# %%
 # * ===================================================================================================
 
-def recap_sim(
-    runs: str,
-    *,
-    xl_path: str = '/mnt/pocbinaryfiles/python_package/recap_sim.xlsx',
-    geometry_name: str = None,
-    probe: str = None,
-    specdir: str = None,
-    rng: int = cst.RNG,
-    **kwargs,
-) -> None:
+def recap_sim(runs: str, *,
+              xl_path: str = '/mnt/pocbinaryfiles/python_package/recap_sim.xlsx',
+              geometry_name: str = None,
+              probe: str = None,
+              specdir: str = None,
+              rng: int = cst.RNG,
+              **kwargs) -> None:
+    
     test = pd.DataFrame()
+    
     try:
         test.to_excel(xl_path)
     except OSError as e:
@@ -559,7 +545,7 @@ def recap_sim(
                     break
 
         # Get the number of iterations from the "controlDict" file
-        log_files = tb._find_logs(run_path)
+        log_files = sorted(tb._find_logs(run_path))
         
         data_dict = {
             'Project': [os.path.basename(os.path.dirname(run_path))],
@@ -570,9 +556,8 @@ def recap_sim(
             'Clock Time': [str(datetime.timedelta(seconds=int(sim_time(run_id))))],
             'Turbulence Model': [turbulence_model],
         }
-        log_files = sorted(log_files)
+
         for i, log in enumerate(log_files):
-            
             if i == 0:
                 with open(log, 'r') as f:
                     for line in f:

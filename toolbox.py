@@ -565,7 +565,7 @@ def _get_sig_list(run_dirs, *,
         print(f'\n{bmag}# {run_id}{reset}')
         print('')
 
-        # =========================== GENERIC DATA ===========================
+        # * =========================== GENERIC DATA ===========================
         
         if graph_type == 'data' and specdir != None:
             # Find the path to the pp directory specified in specdir
@@ -583,7 +583,7 @@ def _get_sig_list(run_dirs, *,
                 if not df.empty:
                     sig_list.append({'run_id': run_id, 'pp_dir': os.path.basename(pp), 'df': df})       
 
-        # ============================= RESIDUALS =============================
+        # * ============================= RESIDUALS =============================
             
         elif graph_type == 'residuals':
             pp = os.path.join(run_path, 'postProcessing/residuals')
@@ -597,7 +597,7 @@ def _get_sig_list(run_dirs, *,
             if not df.empty:
                 sig_list.append({'run_id': run_id, 'pp_dir': 'residuals', 'df': df})
 
-        # ============================== PROBES ==============================
+        # * ============================== PROBES ==============================
         
         elif graph_type == 'probes' and probe != None:
             pp = os.path.join(run_path, 'postProcessing/probes')
