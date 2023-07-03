@@ -197,27 +197,25 @@ def _label_names(fpath: str) -> dict:
         'postpro_labels': postpro_labels,
     }
 
-# %% ===================================================================================================
+# * ===================================================================================================
     
 def _find_paths(target: str, *,
                 dtype: str, 
                 root_dir: str = cst.DEFAULT_DIR,
                 **kwargs) -> list:
     
-    # ============================= VARIABLES =============================
-    
     target_pattern = re.compile(target)
     stack = [os.path.abspath(root_dir)]
-    output_paths: list = []
+    output_paths = []
     pattern_excluded_dir = re.compile(cst.EXCLUDED_REGEX)
     pattern_postpro_dir = re.compile(cst.POSTPRO_REGEX)
  
-    # =============================== START ===============================
-
+    # Loop while the stack is not empty
     while stack:
         dirpath: str = stack.pop()
 
-        # Find a dir
+        # * =============================== DIRS ===============================
+        
         if dtype == 'dir':
 
             # Filter items to search
@@ -235,12 +233,13 @@ def _find_paths(target: str, *,
                     output_paths.append(entry.path)
                 else:
                     stack.append(entry.path)
-                    
-        # Find a file
+
+        # * =============================== FILES ===============================
+
         elif dtype == 'file':
 
             # Filter items to search
-            filtered_items: list = [
+            filtered_items = [
                 e for e in os.scandir(dirpath) # Item in dirpath
                 if e.name not in cst.EXCLUDED_ITEMS # Item's name not in excluded list
                 and bool(re.search(pattern_postpro_dir, e.path)) # Item's name not in excluded pattern 
@@ -248,15 +247,11 @@ def _find_paths(target: str, *,
 
             # Determine if the entry goes to the output paths or the stack
             for entry in filtered_items:
-
-                # If the entry is a file
                 if entry.is_file():
 
-                    # If the entry name matches the target append to output paths
+                    # If the entry matches the pattern or is a .dat file
                     if bool(re.search(target_pattern, entry.name)):
                         output_paths.append(entry.path)
-
-                    # Else, get the dict of labels of the file
                     elif entry.name.endswith('.dat'):
                         label_dict = _label_names(entry.path)
 
@@ -267,7 +262,8 @@ def _find_paths(target: str, *,
                             lab_is_match = bool({lab for lab in label_list if bool(re.search(to_search, lab))})
                             if lab_is_match:
                                 output_paths.append(entry.path)
-                        
+
+                        # By default, without more info, add the .dat file to the output paths
                         else:
                             output_paths.append(entry.path)
 
@@ -330,6 +326,8 @@ def _concat_data_files(file_paths: list) -> dict:
                 
                 # Set progress bar
                 pbar = tqdm(total=0, unit=' lines')
+
+                # Split each line to store the data in a tuple
                 for line in f:
                     data = tuple(line.split())
                     data_list.append(data)
@@ -548,7 +546,7 @@ def _print_header(run_dirs: list) -> None:
     print(pt, end=f'{reset}')
     print('')
     
-# %% ===================================================================================================
+# * ===================================================================================================
 
 def _get_avg(df: pd.DataFrame, *,
              rng: int,
@@ -579,7 +577,7 @@ def _get_avg(df: pd.DataFrame, *,
         final_dict = {k: moving_avgs.get(k)[rng - 1:] for k in moving_avgs}
         return final_dict
 
-# %% ===================================================================================================
+# * ===================================================================================================
 
 def _display_settings(**kwargs) -> tuple:
     # Set the default palette to 'hopium'
@@ -611,7 +609,7 @@ def _display_settings(**kwargs) -> tuple:
     
     return marker, space, underscore, sep
 
-# %% ===================================================================================================
+# * ===================================================================================================
 
 def _get_data_from_run(run_path, *,
                        specdir: str = None,
@@ -664,11 +662,9 @@ def _get_data_from_run(run_path, *,
         else:
             continue
 
-# %% ===================================================================================================
+# * ===================================================================================================
 
-def _get_unit(df,
-              pp_dir,
-              csv_df):
+def _get_unit(df, pp_dir, csv_df):
     
     # List of all the units for the pp dir in the csv
     unit_list = _get_postpro_labels(csv_df, pp_dir, "unit")
@@ -686,7 +682,7 @@ def _get_unit(df,
 
     return unit
 
-# %% ===================================================================================================
+# * ===================================================================================================
 
 def _format_excel(file_path):
     # Load the Excel file
