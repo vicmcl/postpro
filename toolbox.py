@@ -460,8 +460,6 @@ def _remove_parenthesis(df: pd.DataFrame) -> pd.DataFrame:
 
 def _filter_data(df: pd.DataFrame, **kwargs) -> pd.DataFrame:
 
-    if kwargs:
-        print('ok')
     # If one or more columns are specified by the user
     if 'usecols' in kwargs:
         usecols = kwargs.get('usecols')
@@ -572,19 +570,24 @@ def _get_avg(df: pd.DataFrame, *,
 
     # Select all the columns except 'Time' by default
     columns = list(df.columns)[1:]
+
     # If one or more columns are specified with 'usecols'
     if 'usecols' in kwargs:
         usecols = kwargs.get('usecols')
         columns = [col for col in list(df.columns)[1:] 
                    if re.search(re.compile(usecols), col)]
+        
+    # Return a dict of the mean value of each column over rng iterations
     if type_avg == 'final':
-        # Return a dict of the mean value of each column over rng iterations
         return {c: df.loc[:, c].tail(rng).mean() for c in columns}
+    
+    # Get the window of series of observations of rng size for each column
     elif type_avg == 'moving':
-        # Get the window of series of observations of rng size for each column
         windows = {c: df.loc[:, c].rolling(rng) for c in columns}
+        
         # Create a series of moving averages of each window for each column
         moving_avgs = {k: windows.get(k).mean().tolist() for k in windows}
+        
         # Remove null entries
         final_dict = {k: moving_avgs.get(k)[rng - 1:] for k in moving_avgs}
         return final_dict
