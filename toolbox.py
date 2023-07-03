@@ -1,20 +1,17 @@
-# %% ---------------------------------------------bold-----------------------------------------------------------## %% --------------------------------------------------------------------------------------------------------#import os
-
 import os
 import re
-import math
 import shutil
 import matplotlib
-import warnings
 import pandas as pd
 import constants as cst
 
 from tqdm import tqdm
+from warnings import warn
 from functools import partial
-from prettytable import PrettyTable
-from file_read_backwards import FileReadBackwards
 from openpyxl import load_workbook
+from prettytable import PrettyTable
 from openpyxl.utils import get_column_letter
+from file_read_backwards import FileReadBackwards
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 
 # ANSI escape sequences of different colors for text output
@@ -28,6 +25,7 @@ blue = "\033[0;94m"
 magenta = "\033[0;38;5;199m"
 cyan = "\033[0;96m"
 white = "\033[0;97m"
+
 # Bold colors
 bgray = "\033[1;90m"
 bred = "\033[1;91m"
@@ -35,6 +33,8 @@ bgreen = "\033[1;92m"
 bblue = "\033[1;94m"
 bmag = "\033[1;38;5;199m"
 bcyan = "\033[1;96m"
+
+# * ===================================================================================================
 
 def _find_logs(run_path: str) -> list:
     """
@@ -67,7 +67,7 @@ def _find_logs(run_path: str) -> list:
     # Return the log_files list.
     return filtered_log_files
 
-# %% ===================================================================================================
+# * ===================================================================================================
 
 def _issteady(run: str) -> bool:
     log_file = _find_logs(_find_runs(run)[0])[0]
@@ -79,7 +79,7 @@ def _issteady(run: str) -> bool:
                 else:
                     return False
                 
-# %% ===================================================================================================
+# * ===================================================================================================
 
 def _csv_postpro_to_df(csv_file: str = '/home/victorien/ofpostpro/postpro_directories.csv') -> pd.DataFrame:
     """
@@ -103,7 +103,7 @@ def _csv_postpro_to_df(csv_file: str = '/home/victorien/ofpostpro/postpro_direct
 
     return csv_df
 
-# %% ===================================================================================================
+# * ===================================================================================================
 
 def _ncol(handles: list) -> int:
 
@@ -127,7 +127,7 @@ def _ncol(handles: list) -> int:
         ncol = nhandles
     return ncol
     
-# %% ===================================================================================================
+# * ===================================================================================================
 
 def _get_postpro_labels(database: pd.DataFrame, 
                         directory: str, 
@@ -151,7 +151,7 @@ def _get_postpro_labels(database: pd.DataFrame,
 
     return filtered_labels
 
-# %% ===================================================================================================
+# * ===================================================================================================
 
 def _label_names(fpath: str) -> dict:
     if 'probes' in fpath or 'residuals' in fpath:
@@ -464,7 +464,7 @@ def _filter_data(df: pd.DataFrame, **kwargs) -> pd.DataFrame:
             # If not all the specified columns are found
             if len(cols) < len(usecols) + 1:
                 cols_not_found = [col for col in df.columns if col not in cols]
-                warnings.warn(f"{bred}'{','.join(cols_not_found)}'{reset}: column(s) not found.", UserWarning)
+                warn(f"{bred}'{','.join(cols_not_found)}'{reset}: column(s) not found.", UserWarning)
 
             # Filter the specified columns that are found
             df = df.loc[:, cols]
@@ -642,7 +642,7 @@ def _get_data_from_run(run_path, *,
 
         # ! If wrong path
         if not os.path.isdir(pp):
-            warnings.warn(f'No {bred}{error_dir}{reset} directory found.', UserWarning)
+            warn(f'No {bred}{error_dir}{reset} directory found.', UserWarning)
 
         # Get the list of file in a given run and the unique basename(s)
         file_paths = sorted(_find_files(file_extension, root_dir=pp))
