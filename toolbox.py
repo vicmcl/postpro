@@ -36,19 +36,6 @@ bblue = "\033[1;94m"
 bmag = "\033[1;38;5;199m"
 bcyan = "\033[1;96m"
 
-def _magnitude(vector):
-    """Returns the magnitude of a given vector.
-
-    Args:
-        vector (list): a multidimensional vector of data
-
-    Returns:
-        float: the magnitude of the vector
-    """
-    return math.sqrt(sum(float(element)**2 for element in vector))
-    
-# %% ===================================================================================================
-
 def _find_logs(run_path: str) -> list:
     """
     Given a path to a directory, returns a list of all log files in the directory and its 'logs' subdirectory.
