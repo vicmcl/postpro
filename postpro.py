@@ -161,6 +161,11 @@ plot_residuals = partial(plot_data, specdir=None, graph_type='residuals')
 
 # * ===================================================================================================
 
+def plot_freq(target, *, specdir, csv_path, graph_type='data', probe: str = None, **kwargs):
+    ...
+
+# * ===================================================================================================
+
 def aero_balance(run, z=-0.359, wb=2.96):
     """ 
     Calculate the aerodynamic balance (i.e. the % of total downforce applied 
