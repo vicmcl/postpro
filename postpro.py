@@ -92,6 +92,12 @@ def plot_data(target, *, specdir, csv_path, graph_type='data', probe: str = None
         else: 
             frmt_legend = ''
 
+        # TODO ====================================================
+
+        # TODO freq plot parameters
+
+        # TODO ====================================================
+
         # Set the unit on the y axis
         if graph_type == 'data':
             unit = tb._get_unit(df, pp_dir, csv_df)
@@ -158,11 +164,7 @@ def plot_data(target, *, specdir, csv_path, graph_type='data', probe: str = None
 
 plot_probes = partial(plot_data, specdir=None, graph_type='probes')
 plot_residuals = partial(plot_data, specdir=None, graph_type='residuals')
-
-# * ===================================================================================================
-
-def plot_freq(target, *, specdir, csv_path, graph_type='data', probe: str = None, **kwargs):
-    ...
+plot_freq = partial(plot_data, graph_type='freq')
 
 # * ===================================================================================================
 
