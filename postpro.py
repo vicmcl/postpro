@@ -1,19 +1,19 @@
-import os
-import re
-import socket
-import getpass
-import datetime
-import importlib 
-import matplotlib
-import numpy as np
-import pandas as pd
-import toolbox as tb
-import seaborn as sns
 import constants as cst
+import matplotlib
 import matplotlib.pyplot as plt
+import os
+import pandas as pd
+import seaborn as sns
+import toolbox as tb
 
-from functools import partial
+from datetime import timedelta
 from file_read_backwards import FileReadBackwards
+from functools import partial
+from getpass import getuser
+from importlib import reload, import_module 
+from numpy import arange
+from re import compile, search, match
+from socket import gethostname
 
 # Args for the figures
 matplotlib.rcParams['xtick.major.width'] = 1
@@ -30,15 +30,21 @@ sns.set()
 # * ===================================================================================================
 
 def reload():
-    module = importlib.import_module(__name__)
-    importlib.reload(module)
-    importlib.reload(tb)
-    importlib.reload(cst)
+    module = import_module(__name__)
+    reload(module)
+    reload(tb)
+    reload(cst)
     print('Reloaded.')
 
 # * ===================================================================================================
 
-def plot_data(target, *, specdir, csv_path, graph_type='data', probe: str = None, **kwargs):
+def plot_data(target, *,
+              specdir,
+              csv_path: str = "/home/victorien/ofpostpro/postpro_directories",
+              graph_type: str ='data',
+              probe: str = None,
+              freq: bool = False,
+              **kwargs):
     
     # Initialization
     marker, space, underscore, sep = tb._display_settings(**kwargs)
@@ -75,10 +81,10 @@ def plot_data(target, *, specdir, csv_path, graph_type='data', probe: str = None
 
         # Get data from run
         run_pp_df_list += [data for data in tb._get_data_from_run(run_path,
-                                                          specdir = specdir,
-                                                          graph_type = graph_type,
-                                                          probe = probe,
-                                                          **kwargs)]
+                                                                  specdir = specdir,
+                                                                  graph_type = graph_type,
+                                                                  probe = probe,
+                                                                  **kwargs)]
 
     # * ========================== PLOT PARAMETERS ==========================
 
@@ -91,12 +97,6 @@ def plot_data(target, *, specdir, csv_path, graph_type='data', probe: str = None
             frmt_legend = f'{sep}{run_id}'
         else: 
             frmt_legend = ''
-
-        # TODO ====================================================
-
-        # TODO freq plot parameters
-
-        # TODO ====================================================
 
         # Set the unit on the y axis
         if graph_type == 'data':
@@ -126,9 +126,19 @@ def plot_data(target, *, specdir, csv_path, graph_type='data', probe: str = None
             # Format legend handle and append the handles list
             handle = f'{marker}{frmt_col}{frmt_legend}{marker}'
             handles.append(handle)
+
+            # TODO ====================================================
+
+            # TODO freq plot parameters
+
+            if freq:
+                pass
+
+            # TODO ====================================================
             
             # Plot the curve with Time on x axis and the selected column on y axis
-            sns.lineplot(data=df, x='Time', y=col, label=handle, ax=ax)
+            else:
+                sns.lineplot(data=df, x='Time', y=col, label=handle, ax=ax)
 
             # Set the unit as y label or hide y label if no unit
             if unit == None:
@@ -242,7 +252,7 @@ def bar_chart(target, *,
         _, ax = plt.subplots(figsize=(12, 27/4))
         run_number = len({sig['run_id'] for sig in sig_list})
         pp_dir_number = len({sig['pp_dir'] for sig in sig_list})
-        xpos = np.arange(len(sig_list))
+        xpos = arange(len(sig_list))
         ax.ticklabel_format(axis='y', style='sci', scilimits=(-1, 0))
         
         # Loop over the datasets to be plotted
@@ -349,15 +359,15 @@ def plot_time(target, *, x='iterations', skipstart=10, **kwargs):
     
     # If at least one run found
     else:
-        time_pattern = re.compile(r'Time = ([\d.]+)s')
-        exec_pattern = re.compile(r'ExecutionTime\s*=\s*([\d.]+)\s*s')
+        time_pattern = compile(r'Time = ([\d.]+)s')
+        exec_pattern = compile(r'ExecutionTime\s*=\s*([\d.]+)\s*s')
         current_iter = 0
         prev_iter = 0
         restarts = []
         cumul_time = []
         tb._print_header(run_dirs)
         for run in run_dirs:
-            run_id = re.search('(?<=run)\d{3}\w*', run).group(0)
+            run_id = search('(?<=run)\d{3}\w*', run).group(0)
             print(f'\nRun {tb._bmag}{run_id}{tb._reset}')
             log_files += tb._find_logs(run)
             data_iter = {'timestep': [], 'exec_time': []}
@@ -371,8 +381,8 @@ def plot_time(target, *, x='iterations', skipstart=10, **kwargs):
                     time_bool = False
                     for line in f:
                         # Patterns to find the lines starting with 'Time' and 'ExecutionTime' and extract the values
-                        time_match = re.match(time_pattern, line)
-                        exec_match = re.match(exec_pattern, line)
+                        time_match = match(time_pattern, line)
+                        exec_match = match(exec_pattern, line)
                         # If a line starts with 'Time' and time_bool is False
                         if time_match and not time_bool:
                             # Extract the float value of Time
@@ -407,11 +417,11 @@ def plot_time(target, *, x='iterations', skipstart=10, **kwargs):
             ax_time_cumul.plot(data_iter['timestep'][skipstart:],
                             cumul_time[skipstart:], color=col2)
             
-            ax_iter.scatter(np.arange(skipstart, len(data_iter['timestep'])),
+            ax_iter.scatter(arange(skipstart, len(data_iter['timestep'])),
                             data_iter['exec_time'][skipstart:],
                             color=col1, marker='.', s=1.5)
             
-            ax_iter_cumul.plot(np.arange(skipstart, len(data_iter['timestep'])),
+            ax_iter_cumul.plot(arange(skipstart, len(data_iter['timestep'])),
                             cumul_time[skipstart:], color=col2)
 
     for r in [element[0] for element in restarts[:1]]:
@@ -550,10 +560,10 @@ def recap_sim(runs: str, *,
         data_dict = {
             'Project': [os.path.basename(os.path.dirname(run_path))],
             'Run': [run_id],
-            'User': [getpass.getuser()],
-            'Workstation': [socket.gethostname()],
+            'User': [getuser()],
+            'Workstation': [gethostname()],
             'Geometry': [geometry_name],
-            'Clock Time': [str(datetime.timedelta(seconds=int(sim_time(run_id))))],
+            'Clock Time': [str(timedelta(seconds=int(sim_time(run_id))))],
             'Turbulence Model': [turbulence_model],
         }
 
