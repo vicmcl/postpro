@@ -580,6 +580,8 @@ def _get_avg(df: pd.DataFrame, *,
 
 # * ===================================================================================================
 
+# ! DEPRECATED ========================================================================================
+
 def _display_settings(**kwargs) -> tuple:
     # Set the default palette to 'hopium'
     matplotlib.rcParams['axes.prop_cycle'] = matplotlib.cycler(
@@ -609,6 +611,8 @@ def _display_settings(**kwargs) -> tuple:
     sep = f'{space}{space}|{space}{space}'
     
     return marker, space, underscore, sep
+
+# ! DEPRECATED ========================================================================================
 
 # * ===================================================================================================
 
@@ -693,8 +697,8 @@ def _get_unit(*, df,
     
     elif graph_type == "probes":
         if 'unit' in kwargs: unit = kwargs.get("unit")
-        elif probe == 'p': unit = 'Pa'
-        elif probe == 'k': unit = 'J/kg'
+        elif probe == "p" or probe =="^p" or probe == "p$": unit = 'Pa'
+        elif probe == "k" or probe =="^k" or probe == "k$": unit = 'J/kg'
         else: unit = None
 
     return unit

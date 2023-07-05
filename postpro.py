@@ -2,6 +2,7 @@ import constants as cst
 import importlib
 import matplotlib
 import matplotlib.pyplot as plt
+import numpy as np
 import os
 import pandas as pd
 import seaborn as sns
@@ -12,8 +13,8 @@ from file_read_backwards import FileReadBackwards
 from functools import partial
 from getpass import getuser
 
-from numpy import arange
 from re import compile, search, match
+from scipy.fft import fft, fftfreq
 from socket import gethostname
 
 # Args for the figures
@@ -40,7 +41,7 @@ def reload():
 # * ===================================================================================================
 
 def plot_data(target, *,
-              specdir,
+              specdir = None,
               csv_path: str = "/home/victorien/ofpostpro/postpro_directories.csv",
               graph_type: str ='data',
               probe: str = None,
@@ -50,10 +51,10 @@ def plot_data(target, *,
     # * =========================== GATHER DATA ===========================
     
     # Initialization
-    marker, space, underscore, sep = tb._display_settings(**kwargs)
     csv_df = tb._csv_postpro_to_df(csv_path)
     runs_dir = []
     run_pp_df_list = []
+    unit = None
 
     # Get number of different runs and their dir
     if isinstance(target, str):
@@ -72,9 +73,10 @@ def plot_data(target, *,
     # Loop over the runs
     for run_path in runs_dir:
 
-        # Verbose
-        print(f'\n{tb.bmag}# {os.path.basename(run_path)}{tb.reset}')
-        print('')
+        # Verbose        
+        print(f"\n{tb.bmag}--------")
+        print(f"# {os.path.basename(run_path)}")
+        print(f"--------{tb.reset}\n")
 
         # Get data from run
         run_pp_df_list += [data for data in tb._get_data_from_run(run_path,
@@ -82,12 +84,13 @@ def plot_data(target, *,
                                                                   graph_type = graph_type,
                                                                   probe = probe,
                                                                   **kwargs)]
+        if not run_pp_df_list:
+            raise ValueError("No data found with such input.")
 
     # * ========================== FIGURE PARAMETERS ==========================
 
     # Set the figure and axis
     _, ax = plt.subplots(figsize=(12, 27/4))
-    ax.set_xlabel(f'{marker}Iterations{sep}Time{space}(s){marker}', labelpad=18, fontsize=15)
     ax.ticklabel_format(axis='y', style='sci', scilimits=(0, 0))
 
     if graph_type == 'residuals':
@@ -96,37 +99,45 @@ def plot_data(target, *,
 
     # * ====================== LEGEND AND AXIS FORMATTING ======================
 
-    # Format a string for LateX font
-    format_latex = lambda x: f"{marker}{x.replace('_', underscore).replace(' ', space)}{marker}"
-
     # Handles initialization
     handles = []
-    handle_prefix = f"Probe{space}" if probe != None else ""
+    handle_prefix = "Probe " if probe != None else ""
 
     # Loop over all the DataFrames to plot    
     for data in run_pp_df_list:
         run_id, pp_dir, df = data.values()
+        sampling_rate  = len(df["Time"]) / df["Time"].iloc[-1]
 
         # If there are multiple runs, display runs, else display the column name
-        frmt_legend = f"{sep}{run_id}" if runs_nb > 1 else ""
+        frmt_legend = " | " + run_id if runs_nb > 1 else ""
 
-        unit = tb._get_unit(df = df,
-                            pp_dir = pp_dir,
-                            csv_df = csv_df,
-                            graph_type = graph_type,
-                            probe = probe,
-                            **kwargs)
+        if freq:
+            # Set axis labels 
+            ax.set_ylabel("Normalized Amplitude", labelpad=10, fontsize=15)
+            ax.set_xlabel("Frequency (Hz)", labelpad=18, fontsize=15)
+
+            # Verbose
+            print(f"\n{tb.bmag}------------")
+            print(f"# FFT {run_id}")
+            print(f"------------{tb.reset}\n")
+
+        else:
+            # Get unit
+            unit = tb._get_unit(df = df,
+                                pp_dir = pp_dir,
+                                csv_df = csv_df,
+                                graph_type = graph_type,
+                                probe = probe,
+                                **kwargs)
+            
+            # Set axis labels 
+            ax.set_xlabel("Iterations | Time (s)", labelpad=18, fontsize=15)
+            ax.set_ylabel(unit, labelpad=10, fontsize=15)
         
-        # Set the unit as y label or hide y label if no unit
-        if unit == None:
-            plt.gca().set_ylabel(None)
-        else: 
-            ax.set_ylabel(format_latex(unit), labelpad=10, fontsize=15)
-
         # Format the column name displayed on the figure
         for col in [c for c in df.columns if c != 'Time']:
-            frmt_col = f"{handle_prefix}{format_latex(col)}"
-            handle = format_latex(frmt_col + frmt_legend)
+            frmt_col = f"{handle_prefix}{col}"
+            handle = f"{frmt_col}{frmt_legend}"
             handles.append(handle)
 
             # TODO ====================================================
@@ -134,7 +145,24 @@ def plot_data(target, *,
             # TODO freq plot parameters
 
             if freq:
-                pass
+                # Verbose
+                print(f"Calculating FFT for {tb.bmag}{col}{tb.reset}...")
+                signal_fft = fft(df[col].values)
+                freqs = fftfreq(len(df[col])) * sampling_rate
+
+                # Normalize the y-axis
+                normalized_spectrum = np.abs(signal_fft) / np.max(np.abs(signal_fft))
+
+                # Keep only positive freqs
+                pos_freqs = freqs[freqs >= 0]
+
+                if "lowpass" in kwargs:
+                    pos_freqs = pos_freqs[pos_freqs <= int(kwargs.get("lowpass"))]
+
+                sns.lineplot(x = pos_freqs,
+                             y = normalized_spectrum[:len(pos_freqs)],
+                             label = handle,
+                             ax = ax)
 
             # TODO ====================================================
             
@@ -145,20 +173,24 @@ def plot_data(target, *,
                              y = col,
                              label = handle,
                              ax = ax)
+                
+        # Set the unit as y label or hide y label if no unit
+        if unit == None:
+            plt.gca().set_ylabel(None)
 
     # Format the legend          
     ax.legend(loc='upper center',
-                bbox_to_anchor = [0.5, -0.2],
-                framealpha = 1,
-                frameon = False,
-                ncol = tb._ncol(handles),
-                borderaxespad=0,
-                fontsize=12)
+              bbox_to_anchor = [0.5, -0.2],
+              framealpha = 1,
+              frameon = False,
+              ncol = tb._ncol(handles),
+              borderaxespad=0,
+              fontsize=12)
         
     # Set title
     if 'title' in kwargs:
-        title = format_latex(kwargs.get('title'))
-        ax.set_title(f'{marker}{title}{marker}', fontsize=20)
+        title = kwargs.get('title')
+        ax.set_title(title, fontsize=20)
 
     # Verbose
     print('\nDisplaying the figure...\n')
@@ -249,7 +281,7 @@ def bar_chart(target, *,
         _, ax = plt.subplots(figsize=(12, 27/4))
         run_number = len({sig['run_id'] for sig in sig_list})
         pp_dir_number = len({sig['pp_dir'] for sig in sig_list})
-        xpos = arange(len(sig_list))
+        xpos = np.arange(len(sig_list))
         ax.ticklabel_format(axis='y', style='sci', scilimits=(-1, 0))
         
         # Loop over the datasets to be plotted
@@ -414,11 +446,11 @@ def plot_time(target, *, x='iterations', skipstart=10, **kwargs):
             ax_time_cumul.plot(data_iter['timestep'][skipstart:],
                             cumul_time[skipstart:], color=col2)
             
-            ax_iter.scatter(arange(skipstart, len(data_iter['timestep'])),
+            ax_iter.scatter(np.arange(skipstart, len(data_iter['timestep'])),
                             data_iter['exec_time'][skipstart:],
                             color=col1, marker='.', s=1.5)
             
-            ax_iter_cumul.plot(arange(skipstart, len(data_iter['timestep'])),
+            ax_iter_cumul.plot(np.arange(skipstart, len(data_iter['timestep'])),
                             cumul_time[skipstart:], color=col2)
 
     for r in [element[0] for element in restarts[:1]]:
