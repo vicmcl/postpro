@@ -1,4 +1,5 @@
 import constants as cst
+import importlib
 import matplotlib
 import matplotlib.pyplot as plt
 import os
@@ -10,7 +11,7 @@ from datetime import timedelta
 from file_read_backwards import FileReadBackwards
 from functools import partial
 from getpass import getuser
-from importlib import reload, import_module 
+
 from numpy import arange
 from re import compile, search, match
 from socket import gethostname
@@ -30,21 +31,23 @@ sns.set()
 # * ===================================================================================================
 
 def reload():
-    module = import_module(__name__)
-    reload(module)
-    reload(tb)
-    reload(cst)
+    module = importlib.import_module(__name__)
+    importlib.reload(module)
+    importlib.reload(tb)
+    importlib.reload(cst)
     print('Reloaded.')
 
 # * ===================================================================================================
 
 def plot_data(target, *,
               specdir,
-              csv_path: str = "/home/victorien/ofpostpro/postpro_directories",
+              csv_path: str = "/home/victorien/ofpostpro/postpro_directories.csv",
               graph_type: str ='data',
               probe: str = None,
               freq: bool = False,
               **kwargs):
+    
+    # * =========================== GATHER DATA ===========================
     
     # Initialization
     marker, space, underscore, sep = tb._display_settings(**kwargs)
@@ -66,12 +69,6 @@ def plot_data(target, *,
     # Verbose
     tb._print_header(runs_dir)
 
-    # Set the figure and axis
-    handles = []
-    _, ax = plt.subplots(figsize=(12, 27/4))
-    ax.set_xlabel(f'{marker}Iterations{sep}Time{space}(s){marker}', labelpad=18, fontsize=15)
-    ax.ticklabel_format(axis='y', style='sci', scilimits=(0, 0))
-
     # Loop over the runs
     for run_path in runs_dir:
 
@@ -86,45 +83,50 @@ def plot_data(target, *,
                                                                   probe = probe,
                                                                   **kwargs)]
 
-    # * ========================== PLOT PARAMETERS ==========================
+    # * ========================== FIGURE PARAMETERS ==========================
+
+    # Set the figure and axis
+    _, ax = plt.subplots(figsize=(12, 27/4))
+    ax.set_xlabel(f'{marker}Iterations{sep}Time{space}(s){marker}', labelpad=18, fontsize=15)
+    ax.ticklabel_format(axis='y', style='sci', scilimits=(0, 0))
+
+    if graph_type == 'residuals':
+        plt.yscale('log')
+        plt.grid(axis='y', linewidth=0.5)
+
+    # * ====================== LEGEND AND AXIS FORMATTING ======================
+
+    # Format a string for LateX font
+    format_latex = lambda x: f"{marker}{x.replace('_', underscore).replace(' ', space)}{marker}"
+
+    # Handles initialization
+    handles = []
+    handle_prefix = f"Probe{space}" if probe != None else ""
 
     # Loop over all the DataFrames to plot    
     for data in run_pp_df_list:
         run_id, pp_dir, df = data.values()
 
         # If there are multiple runs, display runs, else display the column name
-        if runs_nb > 1: 
-            frmt_legend = f'{sep}{run_id}'
-        else: 
-            frmt_legend = ''
+        frmt_legend = f"{sep}{run_id}" if runs_nb > 1 else ""
 
-        # Set the unit on the y axis
-        if graph_type == 'data':
-            unit = tb._get_unit(df, pp_dir, csv_df)
-        elif graph_type == 'residuals':
-            unit = f'{marker}Residuals{marker}'
-            plt.yscale('log')
-            plt.grid(axis='y', linewidth=0.5)
+        unit = tb._get_unit(df = df,
+                            pp_dir = pp_dir,
+                            csv_df = csv_df,
+                            graph_type = graph_type,
+                            probe = probe,
+                            **kwargs)
+        
+        # Set the unit as y label or hide y label if no unit
+        if unit == None:
+            plt.gca().set_ylabel(None)
+        else: 
+            ax.set_ylabel(format_latex(unit), labelpad=10, fontsize=15)
 
         # Format the column name displayed on the figure
         for col in [c for c in df.columns if c != 'Time']:
-            format_string = lambda x: x.replace('_', underscore).replace(' ', space)
-            frmt_col = format_string(col)
-
-            # Display 'Probe #' for probe legend
-            if graph_type == 'probes':
-                frmt_col = f'Probe{space}{frmt_col}'
-
-                # If a unit is specified for the y axis, display it
-                if 'unit' in kwargs:
-                    unit = kwargs.get("unit")
-                else:
-                    if probe == 'p': unit = 'Pa'
-                    elif probe == 'k': unit = 'J/kg'
-                    else: unit = None
-
-            # Format legend handle and append the handles list
-            handle = f'{marker}{frmt_col}{frmt_legend}{marker}'
+            frmt_col = f"{handle_prefix}{format_latex(col)}"
+            handle = format_latex(frmt_col + frmt_legend)
             handles.append(handle)
 
             # TODO ====================================================
@@ -138,37 +140,32 @@ def plot_data(target, *,
             
             # Plot the curve with Time on x axis and the selected column on y axis
             else:
-                sns.lineplot(data=df, x='Time', y=col, label=handle, ax=ax)
+                sns.lineplot(data = df,
+                             x = 'Time',
+                             y = col,
+                             label = handle,
+                             ax = ax)
 
-            # Set the unit as y label or hide y label if no unit
-            if unit == None:
-                plt.gca().set_ylabel(None)
-            else: 
-                ax.set_ylabel(f"{marker}{unit}{marker}", labelpad=10, fontsize=15)
-
-        # Calculate columns number in the legend
-        ncol = tb._ncol(handles)
-
-        # Format the legend          
-        ax.legend(loc='upper center',
-                  bbox_to_anchor = [0.5, -0.2],
-                  framealpha = 1,
-                  frameon = False,
-                  ncol = ncol,
-                  borderaxespad=0,
-                  fontsize=12)
+    # Format the legend          
+    ax.legend(loc='upper center',
+                bbox_to_anchor = [0.5, -0.2],
+                framealpha = 1,
+                frameon = False,
+                ncol = tb._ncol(handles),
+                borderaxespad=0,
+                fontsize=12)
         
-        # Set title
-        if 'title' in kwargs:
-            title = format_string(kwargs.get('title'))
-            ax.set_title(f'{marker}{title}{marker}', fontsize=20)
+    # Set title
+    if 'title' in kwargs:
+        title = format_latex(kwargs.get('title'))
+        ax.set_title(f'{marker}{title}{marker}', fontsize=20)
 
-        # Verbose
-        print('\nDisplaying the figure...\n')
+    # Verbose
+    print('\nDisplaying the figure...\n')
 
-        # Print figure
-        plt.tight_layout()
-        plt.show()
+    # Print figure
+    plt.tight_layout()
+    plt.show()
 
 # * ========================= PARTIAL FUNCTIONS =========================
 

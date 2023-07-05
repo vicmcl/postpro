@@ -432,13 +432,13 @@ def _remove_parenthesis(df: pd.DataFrame) -> pd.DataFrame:
         tqdm.pandas(bar_format=cst.BAR_FORMAT,
                     colour='green',
                     ascii=' |',
-                    desc='Removing parenthesis')
+                    desc='Formatting vectors')
         
         # Remove the parenthesis in the identified columns
         df[cols_with_parenthesis] = df[cols_with_parenthesis].progress_apply(lambda x: x.str.replace(r'[()]', '', regex=True))
 
         # Verbose
-        print('Parenthesis removed.')
+        print('Vectors formatted.')
 
     return df
 
@@ -665,21 +665,37 @@ def _get_data_from_run(run_path, *,
 
 # * ===================================================================================================
 
-def _get_unit(df, pp_dir, csv_df):
+def _get_unit(*, df,
+              pp_dir,
+              csv_df,
+              graph_type,
+              probe = None,
+              **kwargs):
     
-    # List of all the units for the pp dir in the csv
-    unit_list = _get_postpro_labels(csv_df, pp_dir, "unit")
-    unit_length = len(unit_list)
+    if graph_type == "data":
 
-    # List of all the headers for the pp dir in the csv 
-    header_list = _get_postpro_labels(csv_df, pp_dir, "postpro")
+        # List of all the units for the pp dir in the csv
+        unit_list = _get_postpro_labels(csv_df, pp_dir, "unit")
+        unit_length = len(unit_list)
 
-    # If at least one unit label
-    if unit_length > 1:
-        # The chosen unit for the graph is the first one in the list (skip the Time column)
-        unit = [unit_list[i] for i in range(unit_length) if header_list[i] in df.columns][1]
-    else:
-        unit = None
+        # List of all the headers for the pp dir in the csv 
+        header_list = _get_postpro_labels(csv_df, pp_dir, "postpro")
+
+        # If at least one unit label
+        if unit_length > 1:
+            # The chosen unit for the graph is the first one in the list (skip the Time column)
+            unit = [unit_list[i] for i in range(unit_length) if header_list[i] in df.columns][1]
+        else:
+            unit = None
+    
+    elif graph_type == "residuals":
+        unit = "Residuals"
+    
+    elif graph_type == "probes":
+        if 'unit' in kwargs: unit = kwargs.get("unit")
+        elif probe == 'p': unit = 'Pa'
+        elif probe == 'k': unit = 'J/kg'
+        else: unit = None
 
     return unit
 
