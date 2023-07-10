@@ -656,37 +656,39 @@ def recap_sim(runs: str, *,
         
         new_rows = pd.concat([new_rows, df], axis=0)
         new_cols = new_rows.columns
-    
-def update_excel(df: pd.DataFrame, xl_path: str = '/home/victorien/ofpostpro/recap_sim.xlsx') -> None:
-        
-    if os.path.isfile(xl_path):
-        existing_rows = pd.read_excel(xl_path)
-        total_rows = existing_rows
-        existing_cols = existing_rows.columns
-        
-    # ! Wrong path
-    else:
-        raise ValueError('The path to the Excel file does not exist.')
 
-    # Find columns in new_rows that are missing in existing_df
-    missing_cols_xl = list(set(new_cols) - set(existing_cols))
-    for col in missing_cols_xl:
-        total_rows[col] = ''
-    if missing_cols_xl:
-        print('\nNew column(s) added:',
-              f'{tb.bmag}{f"{tb.reset}, {tb.bmag}".join(sorted([str(i) for i in missing_cols_xl]))}{tb.reset}.')
-    
-    # Find columns in new_rows that are missing in new_rows
-    missing_cols_new_rows = list(set(existing_cols) - set(new_cols))
-    for col in missing_cols_new_rows:
-       new_rows[col] = ''
+# TODO =====================================================================================================
 
-    # Append the new rows to the existing DataFrame
-    appended_df = pd.concat([total_rows, new_rows], ignore_index=True) 
-    sorted_missing_cols = sorted(missing_cols_xl)
-    sorted_cols = existing_cols.to_list() + sorted_missing_cols
-    appended_df = appended_df[sorted_cols]
-    # Save the updated DataFrame to a new Excel file
-    appended_df.to_excel(xl_path, index=False)
+# def update_excel(df: pd.DataFrame, xl_path: str = '/home/victorien/ofpostpro/recap_sim.xlsx') -> None:
+        
+#     if os.path.isfile(xl_path):
+#         existing_rows = pd.read_excel(xl_path)
+#         total_rows = existing_rows
+#         existing_cols = existing_rows.columns
+        
+#     # ! Wrong path
+#     else:
+#         raise ValueError('The path to the Excel file does not exist.')
+
+#     # Find columns in new_rows that are missing in existing_df
+#     missing_cols_xl = list(set(new_cols) - set(existing_cols))
+#     for col in missing_cols_xl:
+#         total_rows[col] = ''
+#     if missing_cols_xl:
+#         print('\nNew column(s) added:',
+#               f'{tb.bmag}{f"{tb.reset}, {tb.bmag}".join(sorted([str(i) for i in missing_cols_xl]))}{tb.reset}.')
     
-    tb._format_excel(xl_path)
+#     # Find columns in new_rows that are missing in new_rows
+#     missing_cols_new_rows = list(set(existing_cols) - set(new_cols))
+#     for col in missing_cols_new_rows:
+#        new_rows[col] = ''
+
+#     # Append the new rows to the existing DataFrame
+#     appended_df = pd.concat([total_rows, new_rows], ignore_index=True) 
+#     sorted_missing_cols = sorted(missing_cols_xl)
+#     sorted_cols = existing_cols.to_list() + sorted_missing_cols
+#     appended_df = appended_df[sorted_cols]
+#     # Save the updated DataFrame to a new Excel file
+#     appended_df.to_excel(xl_path, index=False)
+    
+#     tb._format_excel(xl_path)
