@@ -46,10 +46,12 @@ def plot_data(target, *,
               specdir: str,
               probe: str = None,
               freq: bool = False,
-              csv_path: str = "/home/victorien/ofpostpro/postpro_directories.csv",
               **kwargs):
     
     # * =========================== GATHER DATA ===========================
+
+    dirpath = os.path.dirname(os.path.realpath(__file__))
+    csv_path = os.path.join(dirpath, "postpro_directories.csv")
     
     # Initialization
     csv_df = tb._csv_postpro_to_df(csv_path)
@@ -541,13 +543,15 @@ def stop_sim(run):
 # * ===================================================================================================
 
 def recap_sim(runs: str, *,
-              xl_path: str = '/home/victorien/ofpostpro/recap_sim.xlsx',
               geometry_name: str = None,
               probe: str = None,
               specdir: str = None,
               rng: int = cst.RNG,
               **kwargs) -> None:
     
+    dirpath = os.path.dirname(os.path.realpath(__file__))
+    xl_path = os.path.join(dirpath, "postpro_directories.csv")
+
     test = pd.DataFrame()
     
     try:
