@@ -98,6 +98,8 @@ This function creates a XY plot where the X axis represents the timesteps (time 
 
 **Keyword-only arguments:**
 - specdir (*str*): the postProcessing directory to get the data from.
+- csv_path (*str*): local path to postpro_directories.csv.
+- freq (*bool*): set to True to plot a frequency graph. Default value = False.
   
 **Kwargs**: see kwargs section
 
@@ -107,7 +109,7 @@ Example:
 
 ```python
 # Plot the data found in run001/postProcessing/exhaustVolFlowRate
-plot_data('001', specdir='exhaustVolFlowRate')
+plot_data('001', specdir='exhaustVolFlowRate', csv_path='/path/to/postpro_directories.csv')
 ```
 </div>
 
@@ -242,17 +244,6 @@ plot_residuals('001', skipstart=20, skipend=50)
 ```
 </div>
 
-- fancyplot or fp (*boolean*): indicate whether or not the LateX font is used:
-
-<div style="background-color: #F0F0F0;">
-
-```python
-# Plot the data in run001/postProcessing/forceCoeffs 
-# while using the LateX font
-plot_data('001', specdir='forceCoeffs', fp=True)
-```
-</div>
-
 - search (*str*): indicate a specific variable to look for when filtering the data files. This keyword does not specify the columns to be plotted, i.e. it is only used to filter files based on the variables they contain:
 
 <div style="background-color: #F0F0F0;">
@@ -261,6 +252,15 @@ plot_data('001', specdir='forceCoeffs', fp=True)
 # Plot the data in every 'inlet' postProcessing directories
 # containing a file with at least one velocity variable 'U'
 plot_data('001', specdir='inlet', search='U')
+```
+
+</div>
+
+- lowpass (*int*): set the max frequency to plot on a frequency graph. Default value = 100000:
+  
+```python
+# Plot the frequency of the force signals in run001/postProcessing/forces until 50kHz 
+plot_data('001', specdir='forces', freq=True, usecols='F', lowpass=50000)
 ```
 </div>
 </html>
