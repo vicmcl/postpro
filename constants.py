@@ -36,6 +36,8 @@ COLORS = [
     '#00c699'
 ]
 
+LINEWIDTH = 3
+
 # Create a custom colormap using the defined colors
 HOPIUM_CMAP = mcolors.LinearSegmentedColormap.from_list('custom_colormap',
                                                         [HOPIUM_PALETTE['blue'],

@@ -618,7 +618,6 @@ def _display_settings(**kwargs) -> tuple:
 
 def _get_data_from_run(run_path, *,
                        specdir: str = None,
-                       graph_type: str = 'data',
                        probe: str = None,
                        **kwargs) -> list:
     
@@ -626,21 +625,24 @@ def _get_data_from_run(run_path, *,
     file_extension = '.dat'
     pp_dirs = []
 
+    if probe != None and specdir != None:
+        raise ValueError('probe and specdir are mutually exclusive.')
+
     # Generic data
-    if graph_type == 'data' and specdir != None:
+    if specdir != None:
         pp_dirs = _find_dirs(specdir, root_dir=run_path)
         error_dir = specdir
 
-    # Residuals
-    elif graph_type == 'residuals':
-        pp_dirs = [os.path.join(run_path, 'postProcessing/residuals')]
-        error_dir = "residuals"
-
     # Probes
-    elif graph_type == 'probes' and probe != None:
+    elif probe != None:
         pp_dirs = [os.path.join(run_path, 'postProcessing/probes')]
         file_extension = probe
         error_dir = "probes"
+    
+    # Residuals
+    else:
+        pp_dirs = [os.path.join(run_path, 'postProcessing/residuals')]
+        error_dir = "residuals"
 
     # Loop over the postpro dirs
     for pp in pp_dirs:
@@ -670,14 +672,21 @@ def _get_data_from_run(run_path, *,
 # * ===================================================================================================
 
 def _get_unit(*, df,
-              pp_dir,
               csv_df,
-              graph_type,
-              probe = None,
+              pp_dir,
+              probe,
               **kwargs):
     
-    if graph_type == "data":
-
+    if probe != None:
+        if 'unit' in kwargs: unit = kwargs.get("unit")
+        elif probe == "p" or probe =="^p" or probe == "p$": unit = 'Pa'
+        elif probe == "k" or probe =="^k" or probe == "k$": unit = 'J/kg'
+        else: unit = None
+    
+    elif pp_dir == 'residuals':
+        unit = 'Residuals'
+        
+    else:
         # List of all the units for the pp dir in the csv
         unit_list = _get_postpro_labels(csv_df, pp_dir, "unit")
         unit_length = len(unit_list)
@@ -691,15 +700,6 @@ def _get_unit(*, df,
             unit = [unit_list[i] for i in range(unit_length) if header_list[i] in df.columns][1]
         else:
             unit = None
-    
-    elif graph_type == "residuals":
-        unit = "Residuals"
-    
-    elif graph_type == "probes":
-        if 'unit' in kwargs: unit = kwargs.get("unit")
-        elif probe == "p" or probe =="^p" or probe == "p$": unit = 'Pa'
-        elif probe == "k" or probe =="^k" or probe == "k$": unit = 'J/kg'
-        else: unit = None
 
     return unit
 

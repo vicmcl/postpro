@@ -12,7 +12,6 @@ from datetime import timedelta
 from file_read_backwards import FileReadBackwards
 from functools import partial
 from getpass import getuser
-
 from re import compile, search, match
 from scipy.fft import fft, fftfreq
 from socket import gethostname
@@ -23,11 +22,14 @@ matplotlib.rcParams['ytick.major.width'] = 1
 matplotlib.rcParams['lines.markeredgewidth'] = 1
 matplotlib.rcParams['xtick.labelsize'] = 12
 matplotlib.rcParams['ytick.labelsize'] = 12
-matplotlib.rcParams['lines.linewidth'] = 2.5
 matplotlib.rcParams['axes.linewidth'] = 1
+
+# Backend
 matplotlib.use('QtAgg')
 
+# Use seaborn to generate plots
 sns.set()
+sns.set_style("whitegrid")
 
 # * ===================================================================================================
 
@@ -41,11 +43,10 @@ def reload():
 # * ===================================================================================================
 
 def plot_data(target, *,
-              specdir = None,
-              csv_path: str = "/home/victorien/ofpostpro/postpro_directories.csv",
-              graph_type: str ='data',
+              specdir: str,
               probe: str = None,
               freq: bool = False,
+              csv_path: str = "/home/victorien/ofpostpro/postpro_directories.csv",
               **kwargs):
     
     # * =========================== GATHER DATA ===========================
@@ -81,7 +82,6 @@ def plot_data(target, *,
         # Get data from run
         run_pp_df_list += [data for data in tb._get_data_from_run(run_path,
                                                                   specdir = specdir,
-                                                                  graph_type = graph_type,
                                                                   probe = probe,
                                                                   **kwargs)]
         if not run_pp_df_list:
@@ -93,9 +93,11 @@ def plot_data(target, *,
     _, ax = plt.subplots(figsize=(12, 27/4))
     ax.ticklabel_format(axis='y', style='sci', scilimits=(0, 0))
 
-    if graph_type == 'residuals':
+    if probe == specdir == None:
         plt.yscale('log')
-        plt.grid(axis='y', linewidth=0.5)
+    plt.grid(axis='y', linewidth=0.1, color='00000')
+    plt.grid(axis='x', linewidth=0)
+        
 
     # * ====================== LEGEND AND AXIS FORMATTING ======================
 
@@ -125,9 +127,8 @@ def plot_data(target, *,
             # Get unit
             unit = tb._get_unit(df = df,
                                 pp_dir = pp_dir,
-                                csv_df = csv_df,
-                                graph_type = graph_type,
                                 probe = probe,
+                                csv_df = csv_df,
                                 **kwargs)
             
             # Set axis labels 
@@ -140,31 +141,28 @@ def plot_data(target, *,
             handle = f"{frmt_col}{frmt_legend}"
             handles.append(handle)
 
-            # TODO ====================================================
-
-            # TODO freq plot parameters
-
+            # Frequency plot
             if freq:
                 # Verbose
                 print(f"Calculating FFT for {tb.bmag}{col}{tb.reset}...")
+
+                # Calculate frequency content
                 signal_fft = fft(df[col].values)
                 freqs = fftfreq(len(df[col])) * sampling_rate
 
-                # Normalize the y-axis
+                # Normalize the y-axis and keep only positive freqs
                 normalized_spectrum = np.abs(signal_fft) / np.max(np.abs(signal_fft))
-
-                # Keep only positive freqs
                 pos_freqs = freqs[freqs >= 0]
 
+                # Low pass filter
                 if "lowpass" in kwargs:
                     pos_freqs = pos_freqs[pos_freqs <= int(kwargs.get("lowpass"))]
 
                 sns.lineplot(x = pos_freqs,
                              y = normalized_spectrum[:len(pos_freqs)],
                              label = handle,
-                             ax = ax)
-
-            # TODO ====================================================
+                             ax = ax,
+                             linewidth = cst.LINEWIDTH)
             
             # Plot the curve with Time on x axis and the selected column on y axis
             else:
@@ -172,7 +170,10 @@ def plot_data(target, *,
                              x = 'Time',
                              y = col,
                              label = handle,
-                             ax = ax)
+                             ax = ax,
+                             linewidth = cst.LINEWIDTH)
+            sns.despine(left=True)
+
                 
         # Set the unit as y label or hide y label if no unit
         if unit == None:
@@ -201,9 +202,8 @@ def plot_data(target, *,
 
 # * ========================= PARTIAL FUNCTIONS =========================
 
-plot_probes = partial(plot_data, specdir=None, graph_type='probes')
-plot_residuals = partial(plot_data, specdir=None, graph_type='residuals')
-plot_freq = partial(plot_data, graph_type='freq')
+plot_probes = partial(plot_data, specdir=None)
+plot_residuals = partial(plot_data, specdir=None, probe=None)
 
 # * ===================================================================================================
 
@@ -265,13 +265,12 @@ def bar_chart(target, *,
             lgd = ''
             sig_list = tb._get_sig_list(run_dirs,
                                         specdir=specdir,
-                                        graph_type='data',
                                         **kwargs)
+            
         # If probe, "Probe #" added to the legend 
         else:
             lgd = f'Probe{space}'
             sig_list = tb._get_sig_list(run_dirs,
-                                        graph_type='probes', 
                                         probe=probe,
                                         **kwargs)  
 
@@ -542,7 +541,7 @@ def stop_sim(run):
 # * ===================================================================================================
 
 def recap_sim(runs: str, *,
-              xl_path: str = '/mnt/pocbinaryfiles/python_package/recap_sim.xlsx',
+              xl_path: str = '/home/victorien/ofpostpro/recap_sim.xlsx',
               geometry_name: str = None,
               probe: str = None,
               specdir: str = None,
@@ -562,7 +561,6 @@ def recap_sim(runs: str, *,
 
     new_rows = pd.DataFrame()
     run_paths = tb._find_runs(runs)
-    tb._print_header(run_paths)
 
     for run_path in run_paths:
         run_id = os.path.basename(run_path)
@@ -622,12 +620,20 @@ def recap_sim(runs: str, *,
                                 break
         
         data_dict.update({'Date': [date], '# Procs': [n_procs]})
+
+        # Get data from run
+        run_pp_df_list += [data for data in tb._get_data_from_run(run_path,
+                                                                  specdir = specdir,
+                                                                  probe = probe,
+                                                                  **kwargs)]
+        if not run_pp_df_list:
+            raise ValueError("No data found with such input.")
         
         if specdir != None:
             sig_list = tb._get_sig_list([run_path], specdir=specdir, **kwargs)
             
         elif probe != None:
-            sig_list = tb._get_sig_list([run_path], graph_type='probes', probe=probe, **kwargs)
+            sig_list = tb._get_sig_list([run_path], probe=probe, **kwargs)
 
         mean_dict = {}
         for sig in sig_list:
@@ -640,7 +646,7 @@ def recap_sim(runs: str, *,
 
             data_dict.update(mean_dict)
 
-        # add the data to the dataframe
+        # Add the data to the dataframe
         df = pd.DataFrame.from_dict(data_dict)
 
         # Move column date to the first position
@@ -650,6 +656,8 @@ def recap_sim(runs: str, *,
         
         new_rows = pd.concat([new_rows, df], axis=0)
         new_cols = new_rows.columns
+    
+def update_excel(df: pd.DataFrame, xl_path: str = '/home/victorien/ofpostpro/recap_sim.xlsx') -> None:
         
     if os.path.isfile(xl_path):
         existing_rows = pd.read_excel(xl_path)
