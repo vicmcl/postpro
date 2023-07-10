@@ -1,5 +1,7 @@
 # Python syntax
 
+some test
+
 In Python, there are multiple types of arguments possible when calling a function:
 - **Positional arguments:** they are passed based on their position in the function call. They are defined without being explicitly named in the function call.
 Example:
