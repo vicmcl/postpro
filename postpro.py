@@ -49,12 +49,9 @@ def plot_data(target, *,
               **kwargs):
     
     # * =========================== GATHER DATA ===========================
-    
-    dirpath = os.path.dirname(os.path.realpath(__file__))
-    csv_path = os.path.join(dirpath, "postpro_directories.csv")
-    
+
     # Initialization
-    csv_df = tb._csv_postpro_to_df(csv_path)
+    csv_df = tb._csv_postpro_to_df()
     runs_dir = []
     run_pp_df_list = []
     unit = None

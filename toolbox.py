@@ -82,7 +82,7 @@ def _issteady(run: str) -> bool:
                 
 # * ===================================================================================================
 
-def _csv_postpro_to_df(csv_file: str = '/home/victorien/ofpostpro/postpro_directories.csv') -> pd.DataFrame:
+def _csv_postpro_to_df() -> pd.DataFrame:
     """
     Convert a CSV file containing post-processing directories and labels into a Pandas DataFrame.
 
@@ -92,9 +92,11 @@ def _csv_postpro_to_df(csv_file: str = '/home/victorien/ofpostpro/postpro_direct
     Returns:
         pandas.DataFrame: A DataFrame with hierarchical indexing by directory and label type.
     """
+    dirpath = os.path.dirname(os.path.realpath(__file__))
+    csv_path = os.path.join(dirpath, "postpro_directories.csv")
 
     # Convert the csv file into a DataFrame while filling the empty cells with ""
-    csv_df: pd.DataFrame = pd.read_csv(csv_file, sep=';').fillna(pd.NA)
+    csv_df: pd.DataFrame = pd.read_csv(csv_path, sep=';').fillna(pd.NA)
 
     # Fill missing directory values using the most recent non-null value
     csv_df['Directories'] = csv_df['Directories'].fillna(method='ffill')
