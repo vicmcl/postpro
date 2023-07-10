@@ -34,7 +34,7 @@ print_info('John', surname='Doe')
 ```
 </div>
 
-- **Kwargs:** placeholder name for a variable-length dictionary of optional keyword arguments passed in the function call. They are represented by **kwargs in the function definition.
+- **Kwargs:** placeholder name for **optional** keyword arguments passed in the function call. They are represented by **kwargs in the function definition.
 Example:
 
 <div style="background-color: #F0F0F0;">
@@ -58,7 +58,16 @@ print_info('John', surname='Doe', Age='85',
 ```
 </div>
 
-The functions of the **postpro** module use these 3 types of arguments to work correctly. To import the module in a Python console, use:
+The functions of the **postpro** module use these 3 types of arguments to work correctly. They should be written in the following order:
+
+```python
+# Generic function call using positional arguments, keyword-only arguments and kwargs 
+func(positional args, keyword-only args, kwargs)
+```
+</div>
+
+
+To import the module in a Python console, use:
 
 <div style="background-color: #F0F0F0;">
 
@@ -83,7 +92,7 @@ Useful regex syntax:
 | [xy]   | Match at least one of the bracketed characters | '[234]'         | run00**2** run0**34**            | run005             |
 | x\|y   | Match at least one of the groups of characters | '56\|78'        | run0**56** run**78**0            | run067             |
 
-The arguments compatible with regex are *target*, *specdir*, *probe* and *usecols*. For more information about regex, see the cheat sheet.
+The arguments compatible with regex are *run*, *specdir*, *probe* and *usecols*.
 
 # Functions list
 
@@ -179,11 +188,11 @@ This function creates a bar plot to compare one or more variables between differ
 ---
 </details>
 
-## recap_sim_df
+## recap_sim
 
 This function returns a DataFrame (table with headers and indexed rows) gathering the basic information about a simulation.
 
-<details><summary>More about <b>recap_sim_df</b></summary>
+<details><summary>More about <b>recap_sim</b></summary>
 <br>
 
 **Positional arguments:** 
