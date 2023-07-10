@@ -1,96 +1,4 @@
-
-<style>
-    hop {
-        color:#00e6b8;
-    }
-</style>
-
-<div style="margin-left: auto;
-            margin-right: auto;
-            width: 80%;
-            text-align: justify;
-            text-justify: inter-word;">
-
-# <hop>Menu<hop>
-
-- [Menu](#menu)
-- [Packages to install](#packages-to-install)
-  - [How to install](#how-to-install)
-  - [Requirements](#requirements)
-- [Postpro module](#postpro-module)
-  - [Python syntax](#python-syntax)
-    - [Regex](#regex)
-  - [Functions list](#functions-list)
-    - [plot\_data](#plot_data)
-    - [plot\_residuals](#plot_residuals)
-    - [plot\_probes](#plot_probes)
-    - [bar\_chart](#bar_chart)
-    - [recap\_sim\_df](#recap_sim_df)
-    - [kwargs](#kwargs)
-
-
-<br>
-
-# <hop>Packages to install<hop>
-
-## How to install
-
-To install a new package, use:
-
-<div style="background-color: #F0F0F0;">
-
-```bash
-$ pip install <package>
-```
-</div>
-
-## Requirements
-
-The code runs with Python 3.8, and errors might occur for more recent versions. To check what version is used in the terminal, use:
-
-<div style="background-color: #F0F0F0;">
-
-```bash
-$ python3 --version
-```
-</div>
-
-The necessary packages with their minimum version is listed below:
-
-| Packages            | Version  |
-| :------------------ | -------: |
-| file-read-backwards | 3.0.0    |
-| matplotlib          | 3.7.1    | 
-| numpy               | 1.24.2   |
-| openpyxl            | 3.1.2    |
-| pandas              | 2.0.1    |
-| prettytable         | 3.7.0    |
-| seaborn             | 0.12.2   |
-| scipy               | 1.10.1   |
-| tqdm                | 4.65.0   |
-
-To check the version of a package, use:
-
-<div style="background-color: #F0F0F0;">
-
-```bash
-$ pip list | grep <package>
-```
-</div>
-
-To upgrade a package to a newer version, use:
-
-<div style="background-color: #F0F0F0;">
-
-```bash
-$ pip install <package> --upgrade
-```
-</div>
-<br>
-
-# <hop>Postpro module</hop>
-
-## Python syntax
+# Python syntax
 
 In Python, there are multiple types of arguments possible when calling a function:
 - **Positional arguments:** they are passed based on their position in the function call. They are defined without being explicitly named in the function call.
@@ -161,24 +69,25 @@ import postpro as pp
 ```
 </div>
 
-### Regex
+# Regex
 
 Some arguments of the functions in the **postpro** module can be written as a *regular expression* (regex) to match a particular pattern when looking for a directory or a file name. 
 
 Useful regex syntax:
 
-| Syntax | Description                             | Example pattern | Examples match             | Examples non-match | 
-| :-     | :-                                      | :-              | :-                         | :-                 |
-| $      | Match end of line                       | '01$'              | run0**01** run2**01**      | run011          |
-| ^      | Match start of line                     | '^force'          | **force**s **force**Coeffs | RAD_forces             |
-| [xy]   | Match at least one of the bracketed characters    | '[234]'            | run00**2** run0**34**      | run005             |
-| x\|y   | Match at least one of the groups of characters    | '56\|78'            | run0**56** run**78**0      | run067             |
+| Syntax | Description                                    | Example pattern | Examples match                   | Examples non-match | 
+| :-     | :-                                             | :-              | :-                               | :-                 |
+| $      | Match end of line                              | '01$'           | run0**01** run2**01**            | run011             |
+| ^      | Match start of line                            | '^force'        | **force**s **force**Coeffs       | RAD_forces         |
+| .*     | Match any character(s)                         | 'l.*'           | C**l** C**l(f)**                 | Cd                 |
+| [xy]   | Match at least one of the bracketed characters | '[234]'         | run00**2** run0**34**            | run005             |
+| x\|y   | Match at least one of the groups of characters | '56\|78'        | run0**56** run**78**0            | run067             |
 
 The arguments compatible with regex are *target*, *specdir*, *probe* and *usecols*. For more information about regex, see the cheat sheet.
 
-## Functions list
+# Functions list
 
-### plot_data
+## plot_data
 This function creates a XY plot where the X axis represents the timesteps (time (s) or iterations) and the Y axis represents the values of a given variable evolving during the simulation.
 
 <details><summary>More about <b>plot_data</b></summary>
@@ -204,9 +113,8 @@ plot_data('001', specdir='exhaustVolFlowRate')
 
 ---
 </details>
-<br>
 
-### plot_residuals
+## plot_residuals
 
 This function creates an XY plot where the X axis represnets the timesteps (time (s) or iterations) and the Y axis represents the residuals evolution on a log scale.
 
@@ -230,9 +138,8 @@ plot_residuals('001')
 
 ---
 </details>
-<br>
 
-### plot_probes
+## plot_probes
 
 This function creates an XY plot where the X axis represnets the timesteps (time (s) or iterations) and the Y axis represents the values of a given probe.
 
@@ -259,9 +166,8 @@ plot_probes('001', probe='alpha')
 
 ---
 </details>
-<br>
 
-### bar_chart
+## bar_chart
 
 This function creates a bar plot to compare one or more variables between different runs or different postProcessing directories.
 
@@ -270,10 +176,8 @@ This function creates a bar plot to compare one or more variables between differ
 
 ---
 </details>
-<br>
 
-
-### recap_sim_df
+## recap_sim_df
 
 This function returns a DataFrame (table with headers and indexed rows) gathering the basic information about a simulation.
 
@@ -311,9 +215,8 @@ The fields automativally added in the DataFrame are:
 ---
 
 </details>
-<br>
 
-### kwargs
+## kwargs
 <details><summary>More about <b>kwargs</b></summary>
 <br>
 
