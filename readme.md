@@ -2,6 +2,7 @@
 
 In Python, there are multiple types of arguments possible when calling a function:
 - **Positional arguments:** they are passed based on their position in the function call. They are defined without being explicitly named in the function call.
+
 Example:
 
 <div style="background-color: #F0F0F0;">
@@ -18,6 +19,7 @@ print_info('John')
 </div>
 
 - **Keyword-only arguments:** they can only be specified by their parameter name during a function call. They cannot be passed as a positional argument and must be explicitly assigned using their parameter name. They are called after the * in the function definition.
+
 Example:
 
 <div style="background-color: #F0F0F0;">
@@ -35,6 +37,7 @@ print_info('John', surname='Doe')
 </div>
 
 - **Kwargs:** placeholder name for **optional** keyword arguments passed in the function call. They are represented by **kwargs in the function definition.
+  
 Example:
 
 <div style="background-color: #F0F0F0;">
@@ -118,7 +121,7 @@ Example:
 
 ```python
 # Plot the data found in run001/postProcessing/exhaustVolFlowRate
-plot_data('001', specdir='exhaustVolFlowRate', csv_path='/path/to/postpro_directories.csv')
+plot_data('001', specdir='exhaustVolFlowRate')
 ```
 </div>
 
