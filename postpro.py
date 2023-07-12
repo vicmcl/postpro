@@ -69,17 +69,22 @@ def gather_data(runs_dir, specdir, probe, **kwargs):
     return run_pp_df_list
 
 def plot_time_data(ax, df, handle_prefix, frmt_legend, unit=None):
+    handles = []
     for col in [c for c in df.columns if c != 'Time']:
         handle = f"{handle_prefix}{col}{frmt_legend}"
+        handles.append(handle)
+
         sns.lineplot(data=df, x='Time', y=col, label=handle, ax=ax, linewidth=cst.LINEWIDTH)
         sns.despine(left=True)
 
     if unit is None: plt.gca().set_ylabel(None)
 
 def plot_freq_data(ax, df, handle_prefix, frmt_legend, sampling_rate, **kwargs):
+    handles = []
     for col in [c for c in df.columns if c != 'Time']:
         frmt_col = f"{handle_prefix}{col}"
         handle = f"{frmt_col}{frmt_legend}"
+        handles.append(handle)
 
         print(f"Calculating FFT for {tb.bmag}{col}{tb.reset}...")
         signal_fft = fft(df[col].values)
