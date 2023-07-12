@@ -1,5 +1,5 @@
-__pycache__/**
-.vscode/**
+__pycache__/
+.vscode/
 __init__.py
 ._.DS_Store
 ._.postpro.py
