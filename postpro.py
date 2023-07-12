@@ -78,6 +78,8 @@ def plot_time_data(ax, df, handle_prefix, frmt_legend, unit=None):
         sns.despine(left=True)
 
     if unit is None: plt.gca().set_ylabel(None)
+    
+    return handles
 
 def plot_freq_data(ax, df, handle_prefix, frmt_legend, sampling_rate, **kwargs):
     handles = []
@@ -97,7 +99,9 @@ def plot_freq_data(ax, df, handle_prefix, frmt_legend, sampling_rate, **kwargs):
             pos_freqs = pos_freqs[pos_freqs <= int(kwargs.get("lowpass"))]
 
         sns.lineplot(x=pos_freqs, y=normalized_spectrum[:len(pos_freqs)], label=handle, ax=ax, linewidth=cst.LINEWIDTH)
-
+    
+    return handles
+    
 def set_figure_params(probe, specdir):
     _, ax = plt.subplots(figsize=(12, 27 / 4))
     ax.ticklabel_format(axis='y', style='sci', scilimits=(0, 0))
@@ -115,7 +119,7 @@ def format_legend(ax, handles):
         bbox_to_anchor=[0.5, -0.2],
         framealpha=1,
         frameon=False,
-        #ncol=tb._ncol(handles),
+        ncol=tb._ncol(handles),
         borderaxespad=0,
         fontsize=12
     )
@@ -133,8 +137,6 @@ def plot_data(runs, *, specdir: str, probe: str = None, freq: bool = False, **kw
     run_pp_df_list = gather_data(runs_dir, specdir, probe, **kwargs)
     
     ax = set_figure_params(probe, specdir)
-
-    handles = []
     handle_prefix = "Probe " if probe is not None else ""
 
     for data in run_pp_df_list:
@@ -144,14 +146,12 @@ def plot_data(runs, *, specdir: str, probe: str = None, freq: bool = False, **kw
         if freq:
             sampling_rate = len(df["Time"]) / df["Time"].iloc[-1]
             set_axis_labels(ax, freq=True)
-            print(f"\n{tb.bmag}------------")
-            print(f"# FFT {run_id}")
-            print(f"------------{tb.reset}\n")
-            plot_freq_data(ax, df, handle_prefix, frmt_legend, sampling_rate, **kwargs)
+            print(f"\n{tb.bmag}------------\n# FFT {run_id}\n------------{tb.reset}\n")
+            handles = plot_freq_data(ax, df, handle_prefix, frmt_legend, sampling_rate, **kwargs)
         else:
             unit = tb._get_unit(df=df, pp_dir=pp_dir, probe=probe, csv_df=csv_df, **kwargs)
             set_axis_labels(ax, unit=unit)
-            plot_time_data(ax, df, handle_prefix, frmt_legend, unit=unit)
+            handles = plot_time_data(ax, df, handle_prefix, frmt_legend, unit=unit)
 
     format_legend(ax, handles)
 
