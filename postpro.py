@@ -1215,8 +1215,13 @@ plot_residuals = partial(plot_data, specdir=None, probe=None)
 def sim_time(run):
 
     # Get run and log files  
-    run_path = _find_runs(run)[0]
-    log_files = _find_logs(run_path)
+    run_list = _find_runs(run)
+
+    # ! Wrong run arg
+    if not run_list:
+        raise ValueError('No run path found.')
+    
+    log_files = _find_logs(run_list[0])
     times_list = []
 
     # Parsing log files to find the line containing the last timestep
