@@ -543,7 +543,6 @@ def stop_sim(run):
 def recap_sim(runs: str, *,
               geometry_name: str = None) -> None:
 
-    new_rows = pd.DataFrame()
     run_paths = tb._find_runs(runs)
 
     for run_path in run_paths:
@@ -605,6 +604,24 @@ def recap_sim(runs: str, *,
         
         data_dict.update({'Date': [date], '# Procs': [n_procs]})
 
+        # Add the data to the dataframe
+        df = pd.DataFrame.from_dict(data_dict)
+
+        # Move column date to the first position
+        cols = df.columns.tolist()
+        cols.insert(0, cols.pop(8))
+        df = df[cols].round(3)
+
+        pt = PrettyTable()
+
+        for col in df.columns:
+            pt.add_column(col, df[col].values)
+            pt.align[col] = 'c'
+
+        print(pt)
+
+        return df
+    
         # # Get data from run
         # run_pp_df_list += [data for data in tb._get_data_from_run(run_path,
         #                                                           specdir = specdir,
@@ -624,21 +641,7 @@ def recap_sim(runs: str, *,
 
         #     data_dict.update(mean_dict)
 
-        # Add the data to the dataframe
-        df = pd.DataFrame.from_dict(data_dict)
-
-        # Move column date to the first position
-        cols = df.columns.tolist()
-        cols.insert(0, cols.pop(8))
-        df = df[cols].round(3)
-
-        pt = PrettyTable()
-
-        for col in df.columns:
-            pt.add_column(col, df[col].values)
-            pt.align[col] = 'c'
-       # print(df)
-        print(pt)
+        
         
         # new_rows = pd.concat([new_rows, df], axis=0)
         
