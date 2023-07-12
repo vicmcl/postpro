@@ -68,25 +68,17 @@ def gather_data(runs_dir, specdir, probe, **kwargs):
 
     return run_pp_df_list
 
-def plot_time_data(ax, df, handle_prefix, frmt_legend, unit=None):
-    handles = []
+def plot_time_data(ax, df, handle_prefix, frmt_legend):
     for col in [c for c in df.columns if c != 'Time']:
         handle = f"{handle_prefix}{col}{frmt_legend}"
-        handles.append(handle)
-
         sns.lineplot(data=df, x='Time', y=col, label=handle, ax=ax, linewidth=cst.LINEWIDTH)
         sns.despine(left=True)
-
-    if unit is None: plt.gca().set_ylabel(None)
-    
-    return handles
+        yield handle    
 
 def plot_freq_data(ax, df, handle_prefix, frmt_legend, sampling_rate, **kwargs):
-    handles = []
     for col in [c for c in df.columns if c != 'Time']:
         frmt_col = f"{handle_prefix}{col}"
         handle = f"{frmt_col}{frmt_legend}"
-        handles.append(handle)
 
         print(f"Calculating FFT for {tb.bmag}{col}{tb.reset}...")
         signal_fft = fft(df[col].values)
@@ -99,8 +91,7 @@ def plot_freq_data(ax, df, handle_prefix, frmt_legend, sampling_rate, **kwargs):
             pos_freqs = pos_freqs[pos_freqs <= int(kwargs.get("lowpass"))]
 
         sns.lineplot(x=pos_freqs, y=normalized_spectrum[:len(pos_freqs)], label=handle, ax=ax, linewidth=cst.LINEWIDTH)
-    
-    return handles
+        yield handle
     
 def set_figure_params(probe, specdir):
     _, ax = plt.subplots(figsize=(12, 27 / 4))
@@ -147,12 +138,13 @@ def plot_data(runs, *, specdir: str, probe: str = None, freq: bool = False, **kw
             sampling_rate = len(df["Time"]) / df["Time"].iloc[-1]
             set_axis_labels(ax, freq=True)
             print(f"\n{tb.bmag}------------\n# FFT {run_id}\n------------{tb.reset}\n")
-            handles = plot_freq_data(ax, df, handle_prefix, frmt_legend, sampling_rate, **kwargs)
+            handles = [h for h in plot_freq_data(ax, df, handle_prefix, frmt_legend, sampling_rate, **kwargs)]
         else:
             unit = tb._get_unit(df=df, pp_dir=pp_dir, probe=probe, csv_df=csv_df, **kwargs)
             set_axis_labels(ax, unit=unit)
-            handles = plot_time_data(ax, df, handle_prefix, frmt_legend, unit=unit)
+            handles = [h for h in plot_time_data(ax, df, handle_prefix, frmt_legend)]
 
+    if unit is None: plt.gca().set_ylabel(None)
     format_legend(ax, handles)
 
     if 'title' in kwargs:
