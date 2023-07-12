@@ -12,6 +12,7 @@ from datetime import timedelta
 from file_read_backwards import FileReadBackwards
 from functools import partial
 from getpass import getuser
+from prettytable import PrettyTable
 from re import compile, search, match
 from scipy.fft import fft, fftfreq
 from socket import gethostname
@@ -540,25 +541,7 @@ def stop_sim(run):
 # * ===================================================================================================
 
 def recap_sim(runs: str, *,
-              geometry_name: str = None,
-              probe: str = None,
-              specdir: str = None,
-              rng: int = cst.RNG,
-              **kwargs) -> None:
-    
-    dirpath = os.path.dirname(os.path.realpath(__file__))
-    xl_path = os.path.join(dirpath, "postpro_directories.csv")
-
-    test = pd.DataFrame()
-    
-    try:
-        test.to_excel(xl_path)
-    except OSError as e:
-        raise
-    
-    # ! Mutual exclusion of arguments
-    if probe != None and specdir != None:
-        raise ValueError('probe and specdir are mutually exclusive.')
+              geometry_name: str = None) -> None:
 
     new_rows = pd.DataFrame()
     run_paths = tb._find_runs(runs)
@@ -622,30 +605,24 @@ def recap_sim(runs: str, *,
         
         data_dict.update({'Date': [date], '# Procs': [n_procs]})
 
-        # Get data from run
-        run_pp_df_list += [data for data in tb._get_data_from_run(run_path,
-                                                                  specdir = specdir,
-                                                                  probe = probe,
-                                                                  **kwargs)]
-        if not run_pp_df_list:
-            raise ValueError("No data found with such input.")
+        # # Get data from run
+        # run_pp_df_list += [data for data in tb._get_data_from_run(run_path,
+        #                                                           specdir = specdir,
+        #                                                           probe = probe,
+        #                                                           **kwargs)]
+        # if not run_pp_df_list:
+        #     raise ValueError("No data found with such input.")
         
-        if specdir != None:
-            sig_list = tb._get_sig_list([run_path], specdir=specdir, **kwargs)
-            
-        elif probe != None:
-            sig_list = tb._get_sig_list([run_path], probe=probe, **kwargs)
+        # mean_dict = {}
+        # for sig in sig_list:
+        #     df = sig['df']
+        #     # Remove the Time column
+        #     df = df.iloc[:,1:]
+        #     # Initialize a dict representing the mean data for a run/pp_dir combination
+        #     mean_dict.update({col: df[col].tail(rng).mean() for col in df.columns})
+        #     mean_dict = {(probe + col) if col[0].isdigit() else col: value for col, value in mean_dict.items()}
 
-        mean_dict = {}
-        for sig in sig_list:
-            df = sig['df']
-            # Remove the Time column
-            df = df.iloc[:,1:]
-            # Initialize a dict representing the mean data for a run/pp_dir combination
-            mean_dict.update({col: df[col].tail(rng).mean() for col in df.columns})
-            mean_dict = {(probe + col) if col[0].isdigit() else col: value for col, value in mean_dict.items()}
-
-            data_dict.update(mean_dict)
+        #     data_dict.update(mean_dict)
 
         # Add the data to the dataframe
         df = pd.DataFrame.from_dict(data_dict)
@@ -654,9 +631,19 @@ def recap_sim(runs: str, *,
         cols = df.columns.tolist()
         cols.insert(0, cols.pop(8))
         df = df[cols].round(3)
+
+        pt = PrettyTable()
+
+        for col in df.columns:
+            pt.add_column(col, df[col].values)
+            pt.align[col] = 'c'
+       # print(df)
+        print(pt)
         
-        new_rows = pd.concat([new_rows, df], axis=0)
-        new_cols = new_rows.columns
+        # new_rows = pd.concat([new_rows, df], axis=0)
+        
+        
+        # new_cols = new_rows.columns
 
 # TODO =====================================================================================================
 
