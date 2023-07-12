@@ -43,147 +43,118 @@ def reload():
 
 # * ===================================================================================================
 
-def plot_data(target, *, specdir: str, probe: str = None, freq: bool = False, **kwargs):
-    
-    # * =========================== GATHER DATA ===========================
-
-    # Initialization
+def gather_runs(runs):
     csv_df = tb._csv_postpro_to_df()
-    runs_dir, run_pp_df_list = [], []
-    unit = None
+    runs_dir = []
 
-    # Get number of different runs and their dir
-    if isinstance(target, str): target = [target]
-    for tar in target:
-        runs_dir += tb._find_runs(tar)
-    runs_nb =  len({os.path.basename(r) for r in runs_dir})
+    runs_dir += tb._find_runs(runs)
 
-    # ! If no run found
-    if len(runs_dir) == 0: raise ValueError(f"No run found with {tb._bred}'{target}'{tb._reset}.")
-    
-    # Verbose
-    tb._print_header(runs_dir)
+    runs_nb = len({os.path.basename(r) for r in runs_dir})
 
-    for run_path in runs_dir:        
+    if len(runs_dir) == 0:
+        raise ValueError(f"No run found with {tb._bred}'{runs}'{tb._reset}.")
+
+    return runs_dir, runs_nb, csv_df
+
+def gather_data(runs_dir, specdir, probe, **kwargs):
+    run_pp_df_list = []
+
+    for run_path in runs_dir:
         print(f"\n{tb.bmag}--------\n# {os.path.basename(run_path)}\n--------{tb.reset}\n")
-
-        # Get data from run
-        run_pp_df_list += [
-            data for data in tb._get_data_from_run(run_path, specdir = specdir,
-                                                   probe = probe, **kwargs)]
+        run_pp_df_list += [data for data in tb._get_data_from_run(run_path, specdir=specdir,
+                                                                  probe=probe, **kwargs)]
         if not run_pp_df_list:
             raise ValueError("No data found with such input.")
 
-    # * ========================== FIGURE PARAMETERS ==========================
+    return run_pp_df_list
 
-    # Set the figure and axis
-    _, ax = plt.subplots(figsize=(12, 27/4))
+def plot_time_data(ax, df, handle_prefix, frmt_legend, unit=None):
+    for col in [c for c in df.columns if c != 'Time']:
+        handle = f"{handle_prefix}{col}{frmt_legend}"
+        sns.lineplot(data=df, x='Time', y=col, label=handle, ax=ax, linewidth=cst.LINEWIDTH)
+        sns.despine(left=True)
+
+    if unit is None: plt.gca().set_ylabel(None)
+
+def plot_freq_data(ax, df, handle_prefix, frmt_legend, sampling_rate, **kwargs):
+    for col in [c for c in df.columns if c != 'Time']:
+        frmt_col = f"{handle_prefix}{col}"
+        handle = f"{frmt_col}{frmt_legend}"
+
+        print(f"Calculating FFT for {tb.bmag}{col}{tb.reset}...")
+        signal_fft = fft(df[col].values)
+        freqs = fftfreq(len(df[col])) * sampling_rate
+
+        normalized_spectrum = np.abs(signal_fft) / np.max(np.abs(signal_fft))
+        pos_freqs = freqs[freqs >= 0]
+
+        if "lowpass" in kwargs:
+            pos_freqs = pos_freqs[pos_freqs <= int(kwargs.get("lowpass"))]
+
+        sns.lineplot(x=pos_freqs, y=normalized_spectrum[:len(pos_freqs)], label=handle, ax=ax, linewidth=cst.LINEWIDTH)
+
+def set_figure_params(probe, specdir):
+    _, ax = plt.subplots(figsize=(12, 27 / 4))
     ax.ticklabel_format(axis='y', style='sci', scilimits=(0, 0))
     plt.grid(axis='y', linewidth=0.1, color='00000')
     plt.grid(axis='x', linewidth=0)
 
-    if probe == specdir == None:
+    if probe is None and specdir is None:
         plt.yscale('log')
+
+    return ax
+
+def format_legend(ax, handles):
+    ax.legend(
+        loc='upper center',
+        bbox_to_anchor=[0.5, -0.2],
+        framealpha=1,
+        frameon=False,
+        #ncol=tb._ncol(handles),
+        borderaxespad=0,
+        fontsize=12
+    )
+
+def set_axis_labels(ax, freq=False, unit=None):
+    if freq:
+        ax.set_ylabel("Normalized Amplitude", labelpad=10, fontsize=15)
+        ax.set_xlabel("Frequency (Hz)", labelpad=18, fontsize=15)
+    else:
+        ax.set_xlabel("Iterations | Time (s)", labelpad=18, fontsize=15)
+        ax.set_ylabel(unit, labelpad=10, fontsize=15)
+
+def plot_data(runs, *, specdir: str, probe: str = None, freq: bool = False, **kwargs):
+    runs_dir, runs_nb, csv_df = gather_runs(runs)
+    run_pp_df_list = gather_data(runs_dir, specdir, probe, **kwargs)
     
-    # * ====================== LEGEND AND AXIS FORMATTING ======================
+    ax = set_figure_params(probe, specdir)
 
-    # Handles initialization
     handles = []
-    handle_prefix = "Probe " if probe != None else ""
+    handle_prefix = "Probe " if probe is not None else ""
 
-    # Loop over all the DataFrames to plot    
     for data in run_pp_df_list:
         run_id, pp_dir, df = data.values()
-
-        # If there are multiple runs, display runs, else display the column name
         frmt_legend = " | " + run_id if runs_nb > 1 else ""
 
         if freq:
-            sampling_rate  = len(df["Time"]) / df["Time"].iloc[-1]
-            
-            # Set axis labels 
-            ax.set_ylabel("Normalized Amplitude", labelpad=10, fontsize=15)
-            ax.set_xlabel("Frequency (Hz)", labelpad=18, fontsize=15)
-
-            # Verbose
+            sampling_rate = len(df["Time"]) / df["Time"].iloc[-1]
+            set_axis_labels(ax, freq=True)
             print(f"\n{tb.bmag}------------")
             print(f"# FFT {run_id}")
             print(f"------------{tb.reset}\n")
-
+            plot_freq_data(ax, df, handle_prefix, frmt_legend, sampling_rate, **kwargs)
         else:
-            # Get unit
-            unit = tb._get_unit(df = df,
-                                pp_dir = pp_dir,
-                                probe = probe,
-                                csv_df = csv_df,
-                                **kwargs)
-            
-            # Set axis labels 
-            ax.set_xlabel("Iterations | Time (s)", labelpad=18, fontsize=15)
-            ax.set_ylabel(unit, labelpad=10, fontsize=15)
-        
-        # Format the column name displayed on the figure
-        for col in [c for c in df.columns if c != 'Time']:
-            frmt_col = f"{handle_prefix}{col}"
-            handle = f"{frmt_col}{frmt_legend}"
-            handles.append(handle)
+            unit = tb._get_unit(df=df, pp_dir=pp_dir, probe=probe, csv_df=csv_df, **kwargs)
+            set_axis_labels(ax, unit=unit)
+            plot_time_data(ax, df, handle_prefix, frmt_legend, unit=unit)
 
-            # Frequency plot
-            if freq:
-                # Verbose
-                print(f"Calculating FFT for {tb.bmag}{col}{tb.reset}...")
+    format_legend(ax, handles)
 
-                # Calculate frequency content
-                signal_fft = fft(df[col].values)
-                freqs = fftfreq(len(df[col])) * sampling_rate
-
-                # Normalize the y-axis and keep only positive freqs
-                normalized_spectrum = np.abs(signal_fft) / np.max(np.abs(signal_fft))
-                pos_freqs = freqs[freqs >= 0]
-
-                # Low pass filter
-                if "lowpass" in kwargs:
-                    pos_freqs = pos_freqs[pos_freqs <= int(kwargs.get("lowpass"))]
-
-                sns.lineplot(x = pos_freqs,
-                             y = normalized_spectrum[:len(pos_freqs)],
-                             label = handle,
-                             ax = ax,
-                             linewidth = cst.LINEWIDTH)
-            
-            # Plot the curve with Time on x axis and the selected column on y axis
-            else:
-                sns.lineplot(data = df,
-                             x = 'Time',
-                             y = col,
-                             label = handle,
-                             ax = ax,
-                             linewidth = cst.LINEWIDTH)
-            sns.despine(left=True)
-
-                
-        # Set the unit as y label or hide y label if no unit
-        if unit == None:
-            plt.gca().set_ylabel(None)
-
-    # Format the legend          
-    ax.legend(loc='upper center',
-              bbox_to_anchor = [0.5, -0.2],
-              framealpha = 1,
-              frameon = False,
-              ncol = tb._ncol(handles),
-              borderaxespad=0,
-              fontsize=12)
-        
-    # Set title
     if 'title' in kwargs:
         title = kwargs.get('title')
         ax.set_title(title, fontsize=20)
 
-    # Verbose
     print('\nDisplaying the figure...\n')
-
-    # Print figure
     plt.tight_layout()
     plt.show()
 
