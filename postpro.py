@@ -1259,6 +1259,8 @@ def recap_sim(runs: str, *,
               geometry_name: str = None) -> None:
 
     run_paths = _find_runs(runs)
+    print(run_paths)
+    new_rows = pd.DataFrame()
 
     for run_path in run_paths:
         run_id = os.path.basename(run_path)
@@ -1326,16 +1328,16 @@ def recap_sim(runs: str, *,
         cols = df.columns.tolist()
         cols.insert(0, cols.pop(8))
         df = df[cols].round(3)
+        new_rows = pd.concat([new_rows, df], ignore_index=True)
 
-        pt = PrettyTable()
+    pt = PrettyTable()
 
-        for col in df.columns:
-            pt.add_column(col, df[col].values)
-            pt.align[col] = 'c'
+    for col in new_rows.columns:
+        pt.add_column(col, new_rows[col].values)
+        pt.align[col] = 'c'
 
-        print(pt)
-
-        return df
+    print(pt)
+    
     
         # # Get data from run
         # run_pp_df_list += [data for data in _get_data_from_run(run_path,
