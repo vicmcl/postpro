@@ -105,6 +105,7 @@ def set_figure_params(probe, specdir):
     return ax
 
 def format_legend(ax, handles):
+    
     ax.legend(
         loc='upper center',
         bbox_to_anchor=[0.5, -0.2],
