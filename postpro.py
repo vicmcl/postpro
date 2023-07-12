@@ -5,8 +5,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 import pandas as pd
-import seaborn as sns
 import re
+import seaborn as sns
 import shutil
 
 from datetime import timedelta
@@ -17,9 +17,10 @@ from openpyxl import load_workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 from prettytable import PrettyTable
-from re import compile, search, match
+
 from scipy.fft import fft, fftfreq
 from socket import gethostname
+from statistics import stdev, mean
 from tqdm import tqdm
 from warnings import warn
 
@@ -72,9 +73,9 @@ def _find_logs(run_path: str) -> list:
         list: A list of all log files in the directory and its 'logs' subdirectory.
     """
     # Initialize an empty list to store the log files.
-    log_files: list = []
-    filtered_log_files: list = []
-    pattern: re.Pattern = re.compile(cst.LOG_REGEX)
+    log_files = []
+    filtered_log_files = []
+    pattern = re.compile(cst.LOG_REGEX)
 
     # Search for log files in the run_path directory.
     log_files += [f.path for f in os.scandir(run_path) 
@@ -307,9 +308,7 @@ _find_files = partial(_find_paths, dtype='file')
 
 # * ===================================================================================================
 
-def _find_runs(target: str, *,
-               root_dir: str = cst.DEFAULT_DIR,
-               **kwargs) -> list:
+def _find_runs(target: str, *, root_dir: str = cst.DEFAULT_DIR, **kwargs) -> list:
     
     # Find all the dirs in the root dir
     all_dirs =  _find_dirs(target, root_dir=root_dir, **kwargs)
@@ -320,7 +319,7 @@ def _find_runs(target: str, *,
 
 # * ===================================================================================================
 
-def _concat_data_files(file_paths: list) -> dict:
+def _concat_data_files(file_paths: list) -> tuple:
         
         data_list = []
 
@@ -762,17 +761,23 @@ def _format_excel(file_path):
     # Save the modified Excel file
     workbook.save(file_path)
 
-# %% ===================================================================================================
+# * ===================================================================================================
 
-def reload():
-    module = importlib.import_module(__name__)
-    importlib.reload(module)
-    importlib.reload(cst)
-    print('Reloaded.')
+def coeff_variation(run):
+    run_path = _find_runs(run)[0]
+    log_list = _find_logs(run_path)
+    timesteps = []
+
+    for log in log_list:
+        with open(log) as f:
+            timesteps += [float(line.split()[-1].rstrip('s')) for line in f if line.startswith("Time =")]
+    diff = [timesteps[i+1] - timesteps[i] for i in range(len(timesteps)-1)]
+    cv = stdev(diff) / mean(diff)
+    print("Coefficient of variation of timesteps:", f"{bmag}{cv:.1%}{reset}\n")
 
 # * ===================================================================================================
 
-def gather_runs(runs):
+def _gather_runs(runs):
     # Convert CSV data to DataFrame
     csv_df = _csv_postpro_to_df()
 
@@ -791,7 +796,7 @@ def gather_runs(runs):
 
 # * ===================================================================================================
 
-def gather_data(runs_dir, specdir, probe, **kwargs):
+def _gather_data(runs_dir, specdir, probe, **kwargs):
     # List to store processed run DataFrames
     run_pp_df_list = []
 
@@ -811,7 +816,7 @@ def gather_data(runs_dir, specdir, probe, **kwargs):
 
 # * ===================================================================================================
 
-def plot_time_data(ax, df, handle_prefix, frmt_legend):
+def _plot_time_data(ax, df, handle_prefix, frmt_legend):
     # Iterate over each column (excluding 'Time') in the DataFrame
     for col in [c for c in df.columns if c != 'Time']:
         handle = f"{handle_prefix}{col}{frmt_legend}"
@@ -825,7 +830,10 @@ def plot_time_data(ax, df, handle_prefix, frmt_legend):
 
 # * ===================================================================================================
 
-def plot_freq_data(ax, df, handle_prefix, frmt_legend, sampling_rate, **kwargs):
+def _plot_freq_data(run, ax, df, handle_prefix, frmt_legend, sampling_rate, **kwargs):
+
+    coeff_variation(run)
+    
     # Iterate over each column (excluding 'Time') in the DataFrame
     for col in [c for c in df.columns if c != 'Time']:
         frmt_col = f"{handle_prefix}{col}"
@@ -845,13 +853,14 @@ def plot_freq_data(ax, df, handle_prefix, frmt_legend, sampling_rate, **kwargs):
 
         # Plot the frequency data as a line plot
         sns.lineplot(x=pos_freqs, y=normalized_spectrum[:len(pos_freqs)], label=handle, ax=ax, linewidth=cst.LINEWIDTH)
+        sns.despine(left=True)
         
         # Yield the handle for each iteration
         yield handle
 
 # * ===================================================================================================
 
-def set_figure_params(probe, specdir):
+def _set_figure_params(probe, specdir):
     # Create a new figure and axis with specified parameters
     _, ax = plt.subplots(figsize=(12, 27 / 4))
     ax.ticklabel_format(axis='y', style='sci', scilimits=(0, 0))
@@ -866,7 +875,7 @@ def set_figure_params(probe, specdir):
 
 # * ===================================================================================================
 
-def format_legend(ax, handles):
+def _format_legend(ax, handles):
     # Set legend properties
     ax.legend(
         loc='upper center',
@@ -880,25 +889,34 @@ def format_legend(ax, handles):
 
 # * ===================================================================================================
 
-def set_axis_labels(ax, freq=False, unit=None):
+def _set_axis_labels(ax, freq=False, unit=None):
     # Set axis labels based on frequency or time data
     if freq:
         ax.set_ylabel("Normalized Amplitude", labelpad=10, fontsize=15)
-        ax.set_xlabel("Frequency (Hz)", labelpad=18, fontsize=15)
+        ax.set_xlabel(f"Frequency (Hz)", labelpad=18, fontsize=15)
     else:
         ax.set_xlabel("Iterations | Time (s)", labelpad=18, fontsize=15)
         ax.set_ylabel(unit, labelpad=10, fontsize=15)
+
+# %% ===================================================================================================
+
+def reload():
+    module = importlib.import_module(__name__)
+    importlib.reload(module)
+    importlib.reload(cst)
+    print('Reloaded.')
 
 # * ===================================================================================================
 
 def plot_data(runs, *, specdir: str, probe: str = None, freq: bool = False, **kwargs):
     # Gather runs, run data, and CSV DataFrame
-    runs_dir, runs_nb, csv_df = gather_runs(runs)
-    run_pp_df_list = gather_data(runs_dir, specdir, probe, **kwargs)
+    runs_dir, runs_nb, csv_df = _gather_runs(runs)
+    run_pp_df_list = _gather_data(runs_dir, specdir, probe, **kwargs)
     
     # Set up the figure parameters
-    ax = set_figure_params(probe, specdir)
+    ax = _set_figure_params(probe, specdir)
     handle_prefix = "Probe " if probe is not None else ""
+    unit = None
 
     # Iterate over each processed run DataFrame
     for data in run_pp_df_list:
@@ -907,23 +925,23 @@ def plot_data(runs, *, specdir: str, probe: str = None, freq: bool = False, **kw
 
         if freq:
             sampling_rate = len(df["Time"]) / df["Time"].iloc[-1]
-            set_axis_labels(ax, freq=True)
+            _set_axis_labels(ax, freq=True)
             print(f"\n{bmag}------------\n# FFT {run_id}\n------------{reset}\n")
             
             # Plot frequency data and yield handles
-            handles = [h for h in plot_freq_data(ax, df, handle_prefix, frmt_legend, sampling_rate, **kwargs)]
+            handles = [h for h in _plot_freq_data(run_id, ax, df, handle_prefix, frmt_legend, sampling_rate, **kwargs)]
         else:
             unit = _get_unit(df=df, pp_dir=pp_dir, probe=probe, csv_df=csv_df, **kwargs)
-            set_axis_labels(ax, unit=unit)
+            _set_axis_labels(ax, unit=unit)
             
             # Plot time data and yield handles
-            handles = [h for h in plot_time_data(ax, df, handle_prefix, frmt_legend)]
+            handles = [h for h in _plot_time_data(ax, df, handle_prefix, frmt_legend)]
 
     if unit is None:
         plt.gca().set_ylabel(None)
     
     # Format the legend and set the title if specified
-    format_legend(ax, handles)
+    _format_legend(ax, handles)
     if 'title' in kwargs:
         title = kwargs.get('title')
         ax.set_title(title, fontsize=20)
@@ -1399,4 +1417,6 @@ def recap_sim(runs: str, *,
 #     # Save the updated DataFrame to a new Excel file
 #     appended_df.to_excel(xl_path, index=False)
     
+# %%
+
 #     _format_excel(xl_path)
