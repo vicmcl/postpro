@@ -582,42 +582,6 @@ def _get_avg(df: pd.DataFrame, *,
 
 # * ===================================================================================================
 
-# ! DEPRECATED ========================================================================================
-
-def _display_settings(**kwargs) -> tuple:
-    # Set the default palette to 'hopium'
-    matplotlib.rcParams['axes.prop_cycle'] = matplotlib.cycler(
-        color=list(cst.HOPIUM_PALETTE.values()))
-    
-    # Set the color palette
-    if 'palette' in kwargs:
-        # 'classic' palette
-        if kwargs.get('palette') == 'classic':
-            matplotlib.rcParams['axes.prop_cycle'] = matplotlib.cycler(
-                color='bgrcmyk')
-        # 'cyberpunk' palette
-        elif kwargs.get('palette') == 'cyberpunk':
-            matplotlib.rcParams['axes.prop_cycle'] = matplotlib.cycler(
-                color=list(cst.CYBERPUNK_PALETTE.values()))
-
-    # Get the marker, space and underscore depending on LateX formatting
-    marker, space, underscore = '', ' ', '_'
-
-    if ('fancyplot' in kwargs or 'fp' in kwargs) \
-    and (kwargs.get('fancyplot') or kwargs.get('fp')):
-        #  LateX font and figure Args
-        matplotlib.rcParams['text.usetex'] = True
-        marker, space, underscore = '$', '\ ', '\_'
-    else:
-        matplotlib.rcParams['text.usetex'] = False
-    sep = f'{space}{space}|{space}{space}'
-    
-    return marker, space, underscore, sep
-
-# ! DEPRECATED ========================================================================================
-
-# * ===================================================================================================
-
 def _get_data_from_run(run_path, *,
                        specdir: str = None,
                        probe: str = None,
