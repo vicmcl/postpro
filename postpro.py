@@ -43,47 +43,34 @@ def reload():
 
 # * ===================================================================================================
 
-def plot_data(target, *,
-              specdir: str,
-              probe: str = None,
-              freq: bool = False,
-              **kwargs):
+def plot_data(target, *, specdir: str, probe: str = None, freq: bool = False, **kwargs):
     
     # * =========================== GATHER DATA ===========================
 
     # Initialization
     csv_df = tb._csv_postpro_to_df()
-    runs_dir = []
-    run_pp_df_list = []
+    runs_dir, run_pp_df_list = [], []
     unit = None
 
     # Get number of different runs and their dir
-    if isinstance(target, str):
-        target = [target]
+    if isinstance(target, str): target = [target]
     for tar in target:
         runs_dir += tb._find_runs(tar)
     runs_nb =  len({os.path.basename(r) for r in runs_dir})
 
     # ! If no run found
-    if len(runs_dir) == 0:
-        raise ValueError(f"No run found with {tb._bred}'{target}'{tb._reset}.")
+    if len(runs_dir) == 0: raise ValueError(f"No run found with {tb._bred}'{target}'{tb._reset}.")
     
     # Verbose
     tb._print_header(runs_dir)
 
-    # Loop over the runs
-    for run_path in runs_dir:
-
-        # Verbose        
-        print(f"\n{tb.bmag}--------")
-        print(f"# {os.path.basename(run_path)}")
-        print(f"--------{tb.reset}\n")
+    for run_path in runs_dir:        
+        print(f"\n{tb.bmag}--------\n# {os.path.basename(run_path)}\n--------{tb.reset}\n")
 
         # Get data from run
-        run_pp_df_list += [data for data in tb._get_data_from_run(run_path,
-                                                                  specdir = specdir,
-                                                                  probe = probe,
-                                                                  **kwargs)]
+        run_pp_df_list += [
+            data for data in tb._get_data_from_run(run_path, specdir = specdir,
+                                                   probe = probe, **kwargs)]
         if not run_pp_df_list:
             raise ValueError("No data found with such input.")
 
@@ -92,13 +79,12 @@ def plot_data(target, *,
     # Set the figure and axis
     _, ax = plt.subplots(figsize=(12, 27/4))
     ax.ticklabel_format(axis='y', style='sci', scilimits=(0, 0))
+    plt.grid(axis='y', linewidth=0.1, color='00000')
+    plt.grid(axis='x', linewidth=0)
 
     if probe == specdir == None:
         plt.yscale('log')
-    plt.grid(axis='y', linewidth=0.1, color='00000')
-    plt.grid(axis='x', linewidth=0)
-        
-
+    
     # * ====================== LEGEND AND AXIS FORMATTING ======================
 
     # Handles initialization
@@ -108,12 +94,13 @@ def plot_data(target, *,
     # Loop over all the DataFrames to plot    
     for data in run_pp_df_list:
         run_id, pp_dir, df = data.values()
-        sampling_rate  = len(df["Time"]) / df["Time"].iloc[-1]
 
         # If there are multiple runs, display runs, else display the column name
         frmt_legend = " | " + run_id if runs_nb > 1 else ""
 
         if freq:
+            sampling_rate  = len(df["Time"]) / df["Time"].iloc[-1]
+            
             # Set axis labels 
             ax.set_ylabel("Normalized Amplitude", labelpad=10, fontsize=15)
             ax.set_xlabel("Frequency (Hz)", labelpad=18, fontsize=15)
