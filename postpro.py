@@ -16,6 +16,7 @@ from getpass import getuser
 from openpyxl import load_workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
+from pathlib import Path
 from prettytable import PrettyTable
 
 from scipy.fft import fft, fftfreq
@@ -62,7 +63,7 @@ bcyan = "\033[1;96m"
 
 # %% ===================================================================================================
 
-def _find_logs(run_path: str) -> list:
+def _find_logs(run_path: Path) -> list:
     """
     Given a path to a directory, returns a list of all log files in the directory and its 'logs' subdirectory.
 
@@ -78,17 +79,16 @@ def _find_logs(run_path: str) -> list:
     pattern = re.compile(cst.LOG_REGEX)
 
     # Search for log files in the run_path directory.
-    log_files += [f.path for f in os.scandir(run_path) 
-                  if re.search(pattern, f.name)]
+    log_files += [f for f in run_path.iterdir() if re.search(pattern, f.name)]
 
     # Check if the 'logs' subdirectory exists in the run_path directory.
-    if os.path.isdir(os.path.join(run_path, 'logs')):
+    log_dir = run_path / "logs"
+    if log_dir.is_dir():
         # If the 'logs' subdirectory exists, search for log files in it.
-        log_files += [f.path for f in os.scandir(os.path.join(run_path, 'logs')) 
-                      if re.search(pattern, f.name)]
+        log_files += [f for f in log_dir.iterdir() if re.search(pattern, f.name)]
 
     # Remove the 'log.potentialFoam' file from the log_files list if it exists.
-    filtered_log_files = [log for log in log_files if os.path.basename(log) != 'log.potentialFoam']
+    filtered_log_files = [log for log in log_files if log.name != 'log.potentialFoam']
 
     # Return the log_files list.
     return filtered_log_files
@@ -181,12 +181,12 @@ def _get_postpro_labels(database: pd.DataFrame,
 
 # * ===================================================================================================
 
-def _label_names(fpath: str) -> dict:
-    if 'probes' in fpath or 'residuals' in fpath:
+def _label_names(fpath: Path) -> dict:
+    if 'probes' in fpath.parents or 'residuals' in fpath.parents:
         # If the file is a probes or residuals file, the labels are determined based
         # on the format of the file.
-        with open(fpath, 'r') as f:
-            if fpath.endswith('U'):
+        with fpath.open() as f:
+            if fpath.name == "U":
                 # If the file is a velocity file, the labels are composed of the time
                 # and the velocity components.
                 for line in f:
@@ -227,28 +227,28 @@ def _label_names(fpath: str) -> dict:
 
 # * ===================================================================================================
     
-def _find_paths(target: str, *,
-                dtype: str, 
+def _find_paths(runs: str, *,
+                data_type: str, 
                 root_dir: str = cst.DEFAULT_DIR,
                 **kwargs) -> list:
     
-    target_pattern = re.compile(target)
-    stack = [os.path.abspath(root_dir)]
+    target_pattern = re.compile(runs)
+    stack = [Path(root_dir)]
     output_paths = []
     pattern_excluded_dir = re.compile(cst.EXCLUDED_REGEX)
-    pattern_postpro_dir = re.compile(cst.POSTPRO_REGEX)
+    pattern_postpro_dir = re.compile(cst.POSTPRO_DIR)
  
     # Loop while the stack is not empty
     while stack:
-        dirpath: str = stack.pop()
+        dirpath = stack.pop()
 
         # * =============================== DIRS ===============================
         
-        if dtype == 'dir':
+        if data_type == 'dir':
 
             # Filter items to search
             filtered_items = [
-                e for e in os.scandir(dirpath) # Item in dirpath
+                e for e in dirpath.iterdir() # Item in dirpath
                 if e.is_dir() # Item is a dir
                 and e.name not in cst.EXCLUDED_ITEMS # Item's name not in excluded list
                 and not bool(re.search(pattern_excluded_dir, e.name)) # Item's name not in excluded pattern 
@@ -258,19 +258,19 @@ def _find_paths(target: str, *,
             for entry in filtered_items:
                 is_match = re.search(target_pattern, entry.name)
                 if bool(is_match):
-                    output_paths.append(entry.path)
+                    output_paths.append(entry)
                 else:
-                    stack.append(entry.path)
+                    stack.append(entry)
 
         # * =============================== FILES ===============================
 
-        elif dtype == 'file':
+        elif data_type == 'file':
 
             # Filter items to search
             filtered_items = [
-                e for e in os.scandir(dirpath) # Item in dirpath
+                e for e in dirpath.iterdir() # Item in dirpath
                 if e.name not in cst.EXCLUDED_ITEMS # Item's name not in excluded list
-                and bool(re.search(pattern_postpro_dir, e.path)) # Item's name not in excluded pattern 
+                and bool(re.search(pattern_postpro_dir, str(e))) # Item's name not in excluded pattern 
             ]
 
             # Determine if the entry goes to the output paths or the stack
@@ -279,9 +279,9 @@ def _find_paths(target: str, *,
 
                     # If the entry matches the pattern or is a .dat file
                     if bool(re.search(target_pattern, entry.name)):
-                        output_paths.append(entry.path)
-                    elif entry.name.endswith('.dat'):
-                        label_dict = _label_names(entry.path)
+                        output_paths.append(entry)
+                    elif entry.suffix == ".dat":
+                        label_dict = _label_names(entry)
 
                         # If a specific label is searched in the file
                         if 'search' in kwargs:
@@ -289,45 +289,41 @@ def _find_paths(target: str, *,
                             label_list = label_dict.get('postpro_labels')
                             lab_is_match = bool({lab for lab in label_list if bool(re.search(to_search, lab))})
                             if lab_is_match:
-                                output_paths.append(entry.path)
+                                output_paths.append(entry)
 
                         # By default, without more info, add the .dat file to the output paths
                         else:
-                            output_paths.append(entry.path)
+                            output_paths.append(entry)
 
                 # If item is a dir, add it to the stack
                 else:
-                    stack.append(entry.path)
-    
+                    stack.append(entry)
     return sorted(output_paths)
 
 # * ========================= PARTIAL FUNCTIONS =========================
 
-_find_dirs = partial(_find_paths, dtype='dir')
-_find_files = partial(_find_paths, dtype='file')
+_find_dirs = partial(_find_paths, data_type='dir')
+_find_files = partial(_find_paths, data_type='file')
 
 # * ===================================================================================================
 
-def _find_runs(target: str, *, root_dir: str = cst.DEFAULT_DIR, **kwargs) -> list:
+def _find_runs(runs: str, *, root_dir: Path = cst.DEFAULT_DIR, **kwargs) -> list:
     
     # Find all the dirs in the root dir
-    all_dirs =  _find_dirs(target, root_dir=root_dir, **kwargs)
+    all_dirs = _find_dirs(runs, root_dir=root_dir, **kwargs)
     # Keep the dirs containing a 'system' dir and a 'constant' dir
-    run_dirs = [d for d in all_dirs if os.path.isdir(os.path.join(d, 'system')) and os.path.isdir(os.path.join(d, 'constant'))]
+    run_dirs = [d for d in all_dirs if Path(d / "system").is_dir() and Path(d / "constant").is_dir()]
 
     return run_dirs
 
 # * ===================================================================================================
 
-def _concat_data_files(file_paths: list) -> tuple:
+def _concat_data_files(file_paths: list[Path]) -> tuple:
         
         data_list = []
 
         # Sort file paths 
-        if all(f.split('/')[-2].isdigit() for f in file_paths):
-            timesteps = [int(f.split('/')[-2]) for f in file_paths]
-        else:
-            timesteps = [float(f.split('/')[-2]) for f in file_paths]
+        timesteps = [float(f.parent.name) for f in file_paths]
         sorted_file_paths = [x for _, x in sorted(zip(timesteps, file_paths), key=lambda pair: pair[0])]
 
         # Get columns name
@@ -777,7 +773,7 @@ def coeff_variation(run):
 
 # * ===================================================================================================
 
-def _gather_runs(runs):
+def _gather_runs(runs: str) -> tuple:
     # Convert CSV data to DataFrame
     csv_df = _csv_postpro_to_df()
 
@@ -786,7 +782,7 @@ def _gather_runs(runs):
     runs_dir += _find_runs(runs)
 
     # Count the number of unique run directories
-    runs_nb = len({os.path.basename(r) for r in runs_dir})
+    runs_nb = len({r.name for r in runs_dir})
 
     # Raise an error if no runs are found
     if len(runs_dir) == 0:
@@ -796,13 +792,13 @@ def _gather_runs(runs):
 
 # * ===================================================================================================
 
-def _gather_data(runs_dir, specdir, probe, **kwargs):
+def _gather_data(runs_dir: list[Path], specdir: str, probe: str, **kwargs) -> list:
     # List to store processed run DataFrames
     run_pp_df_list = []
 
     # Iterate over each run directory
     for run_path in runs_dir:
-        print(f"\n{bmag}--------\n# {os.path.basename(run_path)}\n--------{reset}\n")
+        print(f"\n{bmag}--------\n# {run_path.name}\n--------{reset}\n")
         
         # Get data from the run and add it to the list
         run_pp_df_list += [data for data in _get_data_from_run(run_path, specdir=specdir,
@@ -812,6 +808,7 @@ def _gather_data(runs_dir, specdir, probe, **kwargs):
         if not run_pp_df_list:
             raise ValueError("No data found with such input.")
 
+    print(run_pp_df_list)
     return run_pp_df_list
 
 # * ===================================================================================================

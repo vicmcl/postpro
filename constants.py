@@ -64,13 +64,14 @@ EXCLUDED_ITEMS = {
 EXCLUDED_REGEX = r"^(?:\d+(?:\.\d+)?(?:e[-+]\d+)?|processor\d+|0\.original)$"
 
 # Regex for paths to the postProcessing directory
-POSTPRO_REGEX = r"\/run\d+\w*/postProcessing"
+POSTPRO_DIR = "/postProcessing/"
 
 # Regex for the log files
 LOG_REGEX = r"log\.[a-zA-Z]+Foam(?:\.\d+(?:s)?)?"
 
 # Default root directory
-DEFAULT_DIR = Path("/" + os.path.join(*os.getcwd().split("/")[:5]))
+DEFAULT_DIR = "."
+            # Path("/" + os.path.join(*os.getcwd().split("/")[:5]))
 
 # ASCII format for the progress bars
 BAR_FORMAT = "{desc}: \033[1m[\033[0m{bar}\033[92m{percentage:3.0f}%\033[0m\033[1m]\033[0m  "
