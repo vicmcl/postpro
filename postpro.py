@@ -1,4 +1,3 @@
-import constants as cst
 import importlib
 import matplotlib
 import matplotlib.pyplot as plt
@@ -25,8 +24,9 @@ from statistics import stdev, mean
 from tqdm import tqdm
 from warnings import warn
 
-from findtools import find
-
+import utils.find as find
+import utils.fetch as fetch
+import utils.constants as cst
 
 # Args for the figures
 matplotlib.rcParams['xtick.major.width'] = 1
@@ -43,32 +43,7 @@ matplotlib.use('QtAgg')
 sns.set()
 sns.set_style("whitegrid")
 
-# ANSI escape sequences of different colors for text output
-reset = "\033[0m"
-bold = "\033[1m"
-
-# Colors
-red = "\033[0;91m"
-green = "\033[0;92m"
-yellow = "\033[0;93m"
-blue = "\033[0;94m"
-magenta = "\033[0;38;5;199m"
-cyan = "\033[0;96m"
-white = "\033[0;97m"
-
-# Bold colors
-bgray = "\033[1;90m"
-bred = "\033[1;91m"
-bgreen = "\033[1;92m"
-bblue = "\033[1;94m"
-bmag = "\033[1;38;5;199m"
-bcyan = "\033[1;96m"
-
 # %% ===================================================================================================
-
-
-
-# * ===================================================================================================
 
 def _issteady(run: str) -> bool:
     log_file = find.find_logs(find.find_runs(run)[0])[0]
@@ -110,232 +85,7 @@ def _ncol(handles: list) -> int:
 
 # * ===================================================================================================
 
-def _concat_data_files(file_paths: list[Path]) -> tuple:
-        
-        data_list = []
 
-        # Sort file paths 
-        timesteps = [np.float64(f.parent.name) for f in file_paths]
-        sorted_file_paths = [x for _, x in sorted(zip(timesteps, file_paths), key=lambda pair: pair[0])]
-
-        # Get columns name
-        cols = find.label_names(sorted_file_paths[0])['postpro_labels']
-
-        # Loop over the file paths
-        for fpath in sorted_file_paths:
-            pp_dir = fpath.parents[1].name
-            timestep = fpath.parent.name
-
-            # Parse file
-            with fpath.open() as f:
-                for line in f:
-                    if line.startswith('# Time'):
-                        break
-
-                # Verbose
-                if 'probes' in fpath.parents:
-                    print(f'Parsing {bmag}probe {fpath.name}{reset} at timestep {bmag}{timestep}{reset}:')
-                else:
-                    print(f'Parsing {bmag}{pp_dir}{reset} at timestep {bmag}{timestep}{reset}:')
-                
-                # Set progress bar
-                pbar = tqdm(total=0, unit=' lines')
-
-                # Split each line to store the data in a tuple
-                for line in f:
-                    data = tuple(line.split())
-                    data_list.append(data)
-                    pbar.update(1)
-                pbar.close()
-
-                #Verbose
-                print('File parsed.')
-        
-        # If at least 2 files are concatenated, display their start timestep
-        if len(file_paths) > 1:
-            fmt_sep = f"{reset}, {bmag}"
-            fmt_timesteps = f"{fmt_sep}".join(sorted([str(i) for i in timesteps]))
-            print(f'Concatenated files at timesteps {bmag}{fmt_timesteps}{reset}.')
-
-        return data_list, cols
-
-# * ===================================================================================================
-
-def _remove_NaN_columns(concat_data: tuple) -> pd.DataFrame:
-
-    data, headers = concat_data
-        
-    # Check for NaN columns to remove
-    # Initialize the indexes of headers and columns to drop
-    idx_headers_to_drop = []
-    idx_cols_to_drop = []
-
-    # DataFrame created without the headers
-    df = pd.DataFrame(data)
-    
-    # Loop over the columns of the DataFrame
-    for i in tqdm(range(len(df.columns)),
-                    bar_format=cst.BAR_FORMAT,
-                    ascii=' |',
-                    colour='green',
-                    desc='Checking for NaN columns'):
-        
-        # If a column filled with NaN is found    
-        if df.iloc[:, i][df.iloc[:, i] != 'N/A'].size == 0:
-
-            # Its index is saved to remove the corresponding header and column
-            idx_cols_to_drop.append(i)
-            idx_headers_to_drop.append(i)
-
-            # If the velocity vector is NaN, 
-            # the Ux, Uy and Uz headers must be removed
-            if 'Uy' in headers[i+1] or 'Uz' in headers[i+1]:
-                idx_headers_to_drop.append(i+1)
-                if 'Uz' in headers[i+2]:
-                    idx_headers_to_drop.append(i+2)
-
-    # Verbose
-    if idx_cols_to_drop:
-        print('NaN column(s) removed.')
-    else:
-        print('No column to remove.')
-
-    # Associate the columns with their headers
-    df = df.drop(idx_cols_to_drop, axis=1)
-    headers = [val for i, val in enumerate(headers) if i not in idx_headers_to_drop]
-    df.columns = headers
-    
-    return df 
-
-# * ===================================================================================================
-    
-def _remove_NaN_cells(df: pd.DataFrame) -> pd.DataFrame:
-
-    # Check for NaN cells to remove
-    tqdm.pandas(bar_format=cst.BAR_FORMAT,
-                ascii=' |',
-                colour='green',
-                desc='Checking for remaining NaN cells')
-    
-    # Save the initial number of rows in the DataFrame
-    previous_size = df.size
-
-    # Drop the rows with one or more NaN or None cells
-    df = df[~df.progress_apply(lambda x: x.isin(['N/A', None])).any(axis=1)]
-
-    # Verbose
-    if df.size != previous_size:
-        print('NaN cell(s) removed.')
-    else:
-        print('No cell to remove.')
-
-    return df
-
-# * ===================================================================================================
-
-def _remove_parenthesis(df: pd.DataFrame) -> pd.DataFrame:
-
-    # Check for parenthesis to remove
-    cols_with_parenthesis = [col for col in df.columns if df[col][1].startswith('(') or df[col][1].endswith(')')]
-
-    # If one or more columns contain cells with parenthesis
-    if len(cols_with_parenthesis) > 0:
-
-        # Progress bar setup
-        tqdm.pandas(bar_format=cst.BAR_FORMAT,
-                    colour='green',
-                    ascii=' |',
-                    desc='Formatting vectors')
-        
-        # Remove the parenthesis in the identified columns
-        df[cols_with_parenthesis] = df[cols_with_parenthesis].progress_apply(lambda x: x.str.replace(r'[()]', '', regex=True))
-
-        # Verbose
-        print('Vectors formatted.')
-
-    return df
-
-# * ===================================================================================================
-
-def _filter_data(df: pd.DataFrame, **kwargs) -> pd.DataFrame:
-
-    # If one or more columns are specified by the user
-    if 'usecols' in kwargs:
-        usecols = kwargs.get('usecols')
-        if isinstance(usecols, str):
-            usecols = [usecols]
-
-        # Filter the columns to keep
-        cols_found = [col for col in df.columns for u in usecols if re.search(re.compile(u), col)]
-        cols = ['Time'] + cols_found
-
-        # If only the 'Time' column remains -> the columns specified do not exist
-        if len(cols) == 1:
-            raise ValueError(f"{bred}'{','.join(usecols)}'{reset}: column(s) not found.")
-        
-        # If at least one column of data is found
-        else:
-            # If not all the specified columns are found
-            if len(cols) < len(usecols) + 1:
-                cols_not_found = [col for col in df.columns if col not in cols]
-                warn(f"{bred}'{','.join(cols_not_found)}'{reset}: column(s) not found.", UserWarning)
-
-            # Filter the specified columns that are found
-            df = df.loc[:, cols]
-            print(f'Columns {bmag}{f"{reset}, {bmag}".join(df.columns[1:])}{reset} selected.')
-
-    # If there are iterations to skip at the beginning or the end of the simulation
-    if 'skipstart' in kwargs:
-        skipstart = kwargs.get('skipstart')
-        df = df.iloc[skipstart:,:]
-        print(f"First {skipstart} iterations skipped.") # Verbose
-    if 'skipend' in kwargs:
-        skipend = kwargs.get('skipend')
-        df = df.iloc[:-skipend, :]
-        print(f"Last {skipend} iterations skipped.") # Verbose
-
-    return df
-        
-# * ===================================================================================================
-        
-def _convert_numerical_data(df: pd.DataFrame) -> pd.DataFrame:
-
-    # Progress bar setup
-    tqdm.pandas(bar_format=cst.BAR_FORMAT,
-                colour='green',
-                ascii=' |',
-                desc='Converting data to float')
-
-    # If the 'Time' column contains strings representing integers
-    if df.iloc[2, 0].isdigit():
-
-        # The 'Time' column is converted to integer
-        df['Time'] = df['Time'].apply(int)
-
-        # Convert all the data to floats, except the 'Time' column
-        df.iloc[:, 1:] = df.iloc[:, 1:].progress_apply(lambda x: x.astype(np.float64))
-
-    # If the 'Time' column contains strings representing floats, convert all the data to floats
-    else:
-        df = df.progress_apply(lambda x: x.astype(np.float64))
-
-    # Verbose
-    print('Data converted.')
-
-    return df
-
-# * ===================================================================================================
-
-def _files_to_df(file_paths: list, **kwargs) -> pd.DataFrame:
-
-    out = _convert_numerical_data(
-              _filter_data(
-                  _remove_parenthesis(
-                      _remove_NaN_cells(
-                          _remove_NaN_columns(
-                              _concat_data_files(file_paths)))), **kwargs))
-    
-    return out
 
 # * ===================================================================================================
 
@@ -346,11 +96,11 @@ def _print_header(run_dirs: list[Path]) -> None:
         raise ValueError("Multiple project directories found.")
     
     # If unique project
-    project = f'{bmag}{run_dirs[0].parent.name}{bcyan}'
+    project = f'{cst.bmag}{run_dirs[0].parent.name}{cst.cst.bcyan}'
     runs_num = [k.name for k in run_dirs] 
-    format_runs = f'{bmag}{f"{reset}, {bmag}".join(sorted(runs_num))}{bcyan}'
-    title_df = pd.DataFrame({f'{reset}{bold}PROJECT{bcyan}': project,
-                             f'{reset}{bold}RUN(S){bcyan}': format_runs},
+    format_runs = f'{cst.bmag}{f"{cst.reset}, {cst.bmag}".join(sorted(runs_num))}{cst.bcyan}'
+    title_df = pd.DataFrame({f'{cst.reset}{cst.bold}PROJECT{cst.bcyan}': project,
+                             f'{cst.reset}{cst.bold}RUN(S){cst.bcyan}': format_runs},
                             index=['Data'])
     # Create a prettytable object
     pt = PrettyTable()
@@ -361,8 +111,8 @@ def _print_header(run_dirs: list[Path]) -> None:
         pt.min_width[col] = int(shutil.get_terminal_size().columns / 2) - 4
 
     # print the table
-    print(bcyan)
-    print(pt, end=f'{reset}')
+    print(cst.bcyan)
+    print(pt, end=f'{cst.reset}')
     print('')
     
 # * ===================================================================================================
@@ -396,94 +146,7 @@ def _get_avg(df: pd.DataFrame, *,
         final_dict = {k: moving_avgs.get(k)[rng - 1:] for k in moving_avgs}
         return final_dict
 
-# * ===================================================================================================
 
-def _get_data_from_run(run_path: Path, *,
-                       specdir: str = None,
-                       probe: str = None,
-                       **kwargs) -> list:
-    
-    run_id = run_path.name
-    file_extension = '.dat'
-    pp_dirs = []
-
-    if probe != None and specdir != None:
-        raise ValueError('probe and specdir are mutually exclusive.')
-
-    # Generic data
-    if specdir != None:
-        pp_dirs = find.find_dirs(specdir, root_dir=run_path)
-        error_dir = specdir
-
-    # Probes
-    elif probe != None:
-        pp_dirs = [run_path / 'postProcessing/probes']
-        file_extension = probe
-        error_dir = "probes"
-    
-    # Residuals
-    else:
-        pp_dirs = [run_path / 'postProcessing/residuals']
-        error_dir = "residuals"
-
-    # Loop over the postpro dirs
-    for pp in pp_dirs:
-
-        # ! If wrong path
-        if not pp.is_dir():
-            warn(f'No {bred}{error_dir}{reset} directory found.', UserWarning)
-
-        # Get the list of file in a given run and the unique basename(s)
-        file_paths = sorted(find.find_files(file_extension, root_dir=pp))
-        basenames = {f.name for f in file_paths}
-
-        # ! More than one basename found
-        if len(basenames) > 1:
-            raise ValueError(f"More than one data type selected: {', '.join(bn for bn in basenames)}")
-        
-        # Yield a DataFrame and the run and postpro dir info
-        df = _files_to_df(file_paths, **kwargs)
-        if not df.empty:
-            if file_extension == '.dat':
-                yield {'run_id': run_id, 'pp_dir': pp.name , 'df': df}
-            else:
-                yield {'run_id': run_id, 'pp_dir': file_paths[0].name , 'df': df}
-        else:
-            continue
-
-# * ===================================================================================================
-
-def _get_unit(*, df,
-              csv_df,
-              pp_dir,
-              probe,
-              **kwargs):
-    
-    if probe != None:
-        if 'unit' in kwargs: unit = kwargs.get("unit")
-        elif probe == "p" or probe =="^p" or probe == "p$": unit = 'Pa'
-        elif probe == "k" or probe =="^k" or probe == "k$": unit = 'J/kg'
-        else: unit = None
-    
-    elif pp_dir == 'residuals':
-        unit = 'Residuals'
-        
-    else:
-        # List of all the units for the pp dir in the csv
-        unit_list = find.get_labels(csv_df, pp_dir, "unit")
-        unit_length = len(unit_list)
-
-        # List of all the headers for the pp dir in the csv 
-        header_list = find.get_labels(csv_df, pp_dir, "postpro")
-
-        # If at least one unit label
-        if unit_length > 1:
-            # The chosen unit for the graph is the first one in the list (skip the Time column)
-            unit = [unit_list[i] for i in range(unit_length) if header_list[i] in df.columns][1]
-        else:
-            unit = None
-
-    return unit
 
 # * ===================================================================================================
 
@@ -566,7 +229,7 @@ def coeff_variation(run):
             timesteps += [np.float64(line.split()[-1].rstrip('s')) for line in f if line.startswith("Time =")]
     diff = [timesteps[i+1] - timesteps[i] for i in range(len(timesteps)-1)]
     cv = stdev(diff) / mean(diff)
-    print("Coefficient of variation of timesteps:", f"{bmag}{cv:.1%}{reset}\n")
+    print("Coefficient of variation of timesteps:", f"{cst.bmag}{cv:.1%}{cst.reset}\n")
 
 # * ===================================================================================================
 
@@ -583,7 +246,7 @@ def _gather_runs(runs: str) -> tuple:
 
     # Raise an error if no runs are found
     if len(run_dirs) == 0:
-        raise ValueError(f"No run found with {bred}'{runs}'{reset}.")
+        raise ValueError(f"No run found with {cst.bred}'{runs}'{cst.reset}.")
 
     return run_dirs, runs_nb, csv_df
 
@@ -595,10 +258,10 @@ def _gather_data(runs_dir: list[Path], specdir: str, probe: str, **kwargs) -> li
 
     # Iterate over each run directory
     for run_path in runs_dir:
-        print(f"\n{bmag}--------\n# {run_path.name}\n--------{reset}\n")
+        print(f"\n{cst.bmag}--------\n# {run_path.name}\n--------{cst.reset}\n")
         
         # Get data from the run and add it to the list
-        run_pp_df_list += [data for data in _get_data_from_run(run_path, specdir=specdir,
+        run_pp_df_list += [data for data in fetch.fetch_run_data(run_path, specdir=specdir,
                                                                   probe=probe, **kwargs)]
         
         # Raise an error if no data is found for the input
@@ -631,7 +294,7 @@ def _plot_freq_data(run, ax, df, handle_prefix, frmt_legend, sampling_rate, **kw
         frmt_col = f"{handle_prefix}{col}"
         handle = f"{frmt_col}{frmt_legend}"
 
-        print(f"Calculating FFT for {bmag}{col}{reset}...")
+        print(f"Calculating FFT for {cst.bmag}{col}{cst.reset}...")
         
         # Calculate the FFT and frequency values
         signal_fft = fft(df[col].values)
@@ -720,12 +383,12 @@ def plot_data(runs, *, specdir: str, probe: str = None, freq: bool = False, **kw
         if freq:
             sampling_rate = len(df["Time"]) / df["Time"].iloc[-1]
             _set_axis_labels(ax, freq=True)
-            print(f"\n{bmag}------------\n# FFT {run_id}\n------------{reset}\n")
+            print(f"\n{cst.bmag}------------\n# FFT {run_id}\n------------{cst.reset}\n")
             
             # Plot frequency data and yield handles
             handles = [h for h in _plot_freq_data(run_id, ax, df, handle_prefix, frmt_legend, sampling_rate, **kwargs)]
         else:
-            unit = _get_unit(df=df, pp_dir=pp_dir, probe=probe, csv_df=csv_df, **kwargs)
+            unit = fetch.fetch_unit(df=df, pp_dir=pp_dir, probe=probe, csv_df=csv_df, **kwargs)
             _set_axis_labels(ax, unit=unit)
             
             # Plot time data and yield handles
@@ -867,7 +530,7 @@ plot_residuals = partial(plot_data, specdir=None, probe=None)
 #         # If a title is specified
 #         if 'title' in kwargs:
 #             title = format_string(kwargs.get('title'))
-#             ax.set_title(f'{marker}{title}{marker}', fontsize=20, fontweight='bold')
+#             ax.set_title(f'{marker}{title}{marker}', fontsize=20, fontweight='cst.bold')
             
 #         # Set the xticks at the center of the grouped rectangles
 #         ax.set_xticks(xpos + width * (len(df_mean.columns) - 1) / 2, xlabel, fontsize=15)
@@ -921,7 +584,7 @@ plot_residuals = partial(plot_data, specdir=None, probe=None)
 #         _print_header(run_dirs)
 #         for run in run_dirs:
 #             run_id = search('(?<=run)\d{3}\w*', run).group(0)
-#             print(f'\nRun {_bmag}{run_id}{_reset}')
+#             print(f'\nRun {_cst.bmag}{run_id}{_cst.reset}')
 #             log_files += _find_logs(run)
 #             data_iter = {'timestep': [], 'exec_time': []}
 
@@ -948,7 +611,7 @@ plot_residuals = partial(plot_data, specdir=None, probe=None)
 #                             prev_iter = current_iter
 #                             # The current execution is extracted
 #                             current_iter = float(line.split()[2])
-#                             # Set time_bool to False to reset the boolean indicating if a 'Time' line has been found
+#                             # Set time_bool to False to cst.reset the boolean indicating if a 'Time' line has been found
 #                             time_bool = False
 #                             # The 'Time' value is added to the timestep list
 #                             data_iter['timestep'].append(time_value)
@@ -1200,7 +863,7 @@ def recap_sim(runs: str, *,
 #         total_rows[col] = ''
 #     if missing_cols_xl:
 #         print('\nNew column(s) added:',
-#               f'{bmag}{f"{reset}, {bmag}".join(sorted([str(i) for i in missing_cols_xl]))}{reset}.')
+#               f'{cst.bmag}{f"{cst.reset}, {cst.bmag}".join(sorted([str(i) for i in missing_cols_xl]))}{cst.reset}.')
     
 #     # Find columns in new_rows that are missing in new_rows
 #     missing_cols_new_rows = list(set(existing_cols) - set(new_cols))

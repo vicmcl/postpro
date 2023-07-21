@@ -82,8 +82,8 @@ def label_names(fpath: Path) -> dict:
         # If the file is not a probes or residuals file, the labels are obtained from
         # a CSV file that links the postpro dirs to the corresponding labels.
         postpro_dir = fpath.parents[1].name
-        csv_df = _csv_postpro_to_df()
-        _partial_labels = partial(_get_labels, database=csv_df, directory=postpro_dir)
+        csv_df = csv_postpro_to_df()
+        _partial_labels = partial(get_labels, database=csv_df, directory=postpro_dir)
         file_labels, postpro_labels = _partial_labels(category='in_file'), _partial_labels(category='postpro')
 
     # Return a dictionary containing the original file labels and the post-processing labels.
@@ -148,7 +148,7 @@ def find_paths(runs: str, *,
                     if bool(re.search(target_pattern, entry.name)):
                         output_paths.append(entry)
                     elif entry.suffix == ".dat":
-                        label_dict = _label_names(entry)
+                        label_dict = label_names(entry)
 
                         # If a specific label is searched in the file
                         if 'search' in kwargs:
