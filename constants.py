@@ -70,7 +70,7 @@ POSTPRO_DIR = "/postProcessing/"
 LOG_REGEX = r"log\.[a-zA-Z]+Foam(?:\.\d+(?:s)?)?"
 
 # Default root directory
-DEFAULT_DIR = "."
+DEFAULT_DIR = Path.cwd()
             # Path("/" + os.path.join(*os.getcwd().split("/")[:5]))
 
 # ASCII format for the progress bars

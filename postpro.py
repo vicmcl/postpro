@@ -117,8 +117,8 @@ def _csv_postpro_to_df() -> pd.DataFrame:
     Returns:
         pandas.DataFrame: A DataFrame with hierarchical indexing by directory and label type.
     """
-    dirpath = os.path.dirname(os.path.realpath(__file__))
-    csv_path = os.path.join(dirpath, "postpro_directories.csv")
+    dirpath = Path(__file__).resolve().parent
+    csv_path = dirpath / "postpro_directories.csv"
 
     # Convert the csv file into a DataFrame while filling the empty cells with ""
     csv_df: pd.DataFrame = pd.read_csv(csv_path, sep=';').fillna(pd.NA)
@@ -157,7 +157,7 @@ def _ncol(handles: list) -> int:
     
 # * ===================================================================================================
 
-def _get_postpro_labels(database: pd.DataFrame, 
+def _get_labels(database: pd.DataFrame, 
                         directory: str, 
                         category: str) -> list:
     """
@@ -172,17 +172,17 @@ def _get_postpro_labels(database: pd.DataFrame,
         List[str]: List of labels for the given directory and category.
     """
     # Use hierarchical indexing to retrieve all labels for the given directory and category
-    labels: pd.Series = database.loc[(directory, category), :]
+    labels = database.loc[(directory, category), :]
 
     # Filter out any NaN values from the resulting Series
-    filtered_labels: list = [c for c in labels.to_numpy() if not pd.isna(c)]
+    filtered_labels = [c for c in labels.to_numpy() if not pd.isna(c)]
 
     return filtered_labels
 
 # * ===================================================================================================
 
 def _label_names(fpath: Path) -> dict:
-    if 'probes' in fpath.parents or 'residuals' in fpath.parents:
+    if fpath.parents[1].name in ["probes", "residuals"]:
         # If the file is a probes or residuals file, the labels are determined based
         # on the format of the file.
         with fpath.open() as f:
@@ -204,36 +204,27 @@ def _label_names(fpath: Path) -> dict:
                         break
     else:
         # If the file is not a probes or residuals file, the labels are obtained from
-        # a CSV file that maps the directories and label types to the corresponding labels.
-        postpro_dir: list = fpath.split('/')[-3]
-        csv_df: pd.DataFrame = _csv_postpro_to_df()
-        
-        file_labels: list = _get_postpro_labels(
-            database = csv_df,
-            directory = postpro_dir,
-            category = 'in_file',
-        )
-        postpro_labels: list = _get_postpro_labels(
-            database = csv_df,
-            directory = postpro_dir,
-            category = 'postpro',
-        )
+        # a CSV file that links the postpro dirs to the corresponding labels.
+        postpro_dir = fpath.parents[1].name
+        csv_df = _csv_postpro_to_df()
+        _partial_labels = partial(_get_labels, database=csv_df, directory=postpro_dir)
+        file_labels, postpro_labels = _partial_labels(category='in_file'), _partial_labels(category='postpro')
 
     # Return a dictionary containing the original file labels and the post-processing labels.
     return {
         'file_labels': file_labels,
-        'postpro_labels': postpro_labels,
+        'postpro_labels': postpro_labels
     }
 
 # * ===================================================================================================
     
 def _find_paths(runs: str, *,
                 data_type: str, 
-                root_dir: str = cst.DEFAULT_DIR,
+                root_dir: Path = cst.DEFAULT_DIR,
                 **kwargs) -> list:
     
     target_pattern = re.compile(runs)
-    stack = [Path(root_dir)]
+    stack = [root_dir]
     output_paths = []
     pattern_excluded_dir = re.compile(cst.EXCLUDED_REGEX)
     pattern_postpro_dir = re.compile(cst.POSTPRO_DIR)
@@ -323,7 +314,7 @@ def _concat_data_files(file_paths: list[Path]) -> tuple:
         data_list = []
 
         # Sort file paths 
-        timesteps = [float(f.parent.name) for f in file_paths]
+        timesteps = [np.float64(f.parent.name) for f in file_paths]
         sorted_file_paths = [x for _, x in sorted(zip(timesteps, file_paths), key=lambda pair: pair[0])]
 
         # Get columns name
@@ -331,18 +322,18 @@ def _concat_data_files(file_paths: list[Path]) -> tuple:
 
         # Loop over the file paths
         for fpath in sorted_file_paths:
-            pp_dir = fpath.split('/')[-3]
-            timestep = fpath.split('/')[-2]
+            pp_dir = fpath.parents[1].name
+            timestep = fpath.parent.name
 
             # Parse file
-            with open(fpath, 'r') as f:
+            with fpath.open() as f:
                 for line in f:
                     if line.startswith('# Time'):
                         break
 
                 # Verbose
-                if 'probe' in fpath:
-                    print(f'Parsing {bmag}probe {os.path.basename(fpath)}{reset} at timestep {bmag}{timestep}{reset}:')
+                if 'probes' in fpath.parents:
+                    print(f'Parsing {bmag}probe {fpath.name}{reset} at timestep {bmag}{timestep}{reset}:')
                 else:
                     print(f'Parsing {bmag}{pp_dir}{reset} at timestep {bmag}{timestep}{reset}:')
                 
@@ -521,11 +512,11 @@ def _convert_numerical_data(df: pd.DataFrame) -> pd.DataFrame:
         df['Time'] = df['Time'].apply(int)
 
         # Convert all the data to floats, except the 'Time' column
-        df.iloc[:, 1:] = df.iloc[:, 1:].progress_apply(lambda x: x.astype(float))
+        df.iloc[:, 1:] = df.iloc[:, 1:].progress_apply(lambda x: x.astype(np.float64))
 
     # If the 'Time' column contains strings representing floats, convert all the data to floats
     else:
-        df = df.progress_apply(lambda x: x.astype(float))
+        df = df.progress_apply(lambda x: x.astype(np.float64))
 
     # Verbose
     print('Data converted.')
@@ -547,10 +538,15 @@ def _files_to_df(file_paths: list, **kwargs) -> pd.DataFrame:
 
 # * ===================================================================================================
 
-def _print_header(run_dirs: list) -> None:
+def _print_header(run_dirs: list[Path]) -> None:
     
-    project = f'{bmag}{os.path.basename(cst.DEFAULT_DIR)}{bcyan}'
-    runs_num = [os.path.basename(k) for k in run_dirs] 
+    # Check project is unique
+    if not len({r.parent.name for r in run_dirs}) == 1:
+        raise ValueError("Multiple project directories found.")
+    
+    # If unique project
+    project = f'{bmag}{run_dirs[0].parent.name}{bcyan}'
+    runs_num = [k.name for k in run_dirs] 
     format_runs = f'{bmag}{f"{reset}, {bmag}".join(sorted(runs_num))}{bcyan}'
     title_df = pd.DataFrame({f'{reset}{bold}PROJECT{bcyan}': project,
                              f'{reset}{bold}RUN(S){bcyan}': format_runs},
@@ -601,12 +597,12 @@ def _get_avg(df: pd.DataFrame, *,
 
 # * ===================================================================================================
 
-def _get_data_from_run(run_path, *,
+def _get_data_from_run(run_path: Path, *,
                        specdir: str = None,
                        probe: str = None,
                        **kwargs) -> list:
     
-    run_id = os.path.basename(run_path)
+    run_id = run_path.name
     file_extension = '.dat'
     pp_dirs = []
 
@@ -620,25 +616,25 @@ def _get_data_from_run(run_path, *,
 
     # Probes
     elif probe != None:
-        pp_dirs = [os.path.join(run_path, 'postProcessing/probes')]
+        pp_dirs = [run_path / 'postProcessing/probes']
         file_extension = probe
         error_dir = "probes"
     
     # Residuals
     else:
-        pp_dirs = [os.path.join(run_path, 'postProcessing/residuals')]
+        pp_dirs = [run_path / 'postProcessing/residuals']
         error_dir = "residuals"
 
     # Loop over the postpro dirs
     for pp in pp_dirs:
 
         # ! If wrong path
-        if not os.path.isdir(pp):
+        if not pp.is_dir():
             warn(f'No {bred}{error_dir}{reset} directory found.', UserWarning)
 
         # Get the list of file in a given run and the unique basename(s)
         file_paths = sorted(_find_files(file_extension, root_dir=pp))
-        basenames = {os.path.basename(f) for f in file_paths}
+        basenames = {f.name for f in file_paths}
 
         # ! More than one basename found
         if len(basenames) > 1:
@@ -648,9 +644,9 @@ def _get_data_from_run(run_path, *,
         df = _files_to_df(file_paths, **kwargs)
         if not df.empty:
             if file_extension == '.dat':
-                yield {'run_id': run_id, 'pp_dir': os.path.basename(pp) , 'df': df}
+                yield {'run_id': run_id, 'pp_dir': pp.name , 'df': df}
             else:
-                yield {'run_id': run_id, 'pp_dir': os.path.basename(file_paths[0]) , 'df': df}
+                yield {'run_id': run_id, 'pp_dir': file_paths[0].name , 'df': df}
         else:
             continue
 
@@ -673,11 +669,11 @@ def _get_unit(*, df,
         
     else:
         # List of all the units for the pp dir in the csv
-        unit_list = _get_postpro_labels(csv_df, pp_dir, "unit")
+        unit_list = _get_labels(csv_df, pp_dir, "unit")
         unit_length = len(unit_list)
 
         # List of all the headers for the pp dir in the csv 
-        header_list = _get_postpro_labels(csv_df, pp_dir, "postpro")
+        header_list = _get_labels(csv_df, pp_dir, "postpro")
 
         # If at least one unit label
         if unit_length > 1:
@@ -766,7 +762,7 @@ def coeff_variation(run):
 
     for log in log_list:
         with open(log) as f:
-            timesteps += [float(line.split()[-1].rstrip('s')) for line in f if line.startswith("Time =")]
+            timesteps += [np.float64(line.split()[-1].rstrip('s')) for line in f if line.startswith("Time =")]
     diff = [timesteps[i+1] - timesteps[i] for i in range(len(timesteps)-1)]
     cv = stdev(diff) / mean(diff)
     print("Coefficient of variation of timesteps:", f"{bmag}{cv:.1%}{reset}\n")
@@ -778,17 +774,17 @@ def _gather_runs(runs: str) -> tuple:
     csv_df = _csv_postpro_to_df()
 
     # Find runs in the specified directory
-    runs_dir = []
-    runs_dir += _find_runs(runs)
+    run_dirs = []
+    run_dirs += _find_runs(runs)
 
     # Count the number of unique run directories
-    runs_nb = len({r.name for r in runs_dir})
+    runs_nb = len({r.name for r in run_dirs})
 
     # Raise an error if no runs are found
-    if len(runs_dir) == 0:
+    if len(run_dirs) == 0:
         raise ValueError(f"No run found with {bred}'{runs}'{reset}.")
 
-    return runs_dir, runs_nb, csv_df
+    return run_dirs, runs_nb, csv_df
 
 # * ===================================================================================================
 
@@ -807,8 +803,6 @@ def _gather_data(runs_dir: list[Path], specdir: str, probe: str, **kwargs) -> li
         # Raise an error if no data is found for the input
         if not run_pp_df_list:
             raise ValueError("No data found with such input.")
-
-    print(run_pp_df_list)
     return run_pp_df_list
 
 # * ===================================================================================================
@@ -907,18 +901,19 @@ def reload():
 
 def plot_data(runs, *, specdir: str, probe: str = None, freq: bool = False, **kwargs):
     # Gather runs, run data, and CSV DataFrame
-    runs_dir, runs_nb, csv_df = _gather_runs(runs)
-    run_pp_df_list = _gather_data(runs_dir, specdir, probe, **kwargs)
+    run_dirs, run_nb, csv_df = _gather_runs(runs)
+    _print_header(run_dirs)
+    run_pp_df_list = _gather_data(run_dirs, specdir, probe, **kwargs)
     
     # Set up the figure parameters
     ax = _set_figure_params(probe, specdir)
     handle_prefix = "Probe " if probe is not None else ""
     unit = None
-
+    
     # Iterate over each processed run DataFrame
     for data in run_pp_df_list:
         run_id, pp_dir, df = data.values()
-        frmt_legend = " | " + run_id if runs_nb > 1 else ""
+        frmt_legend = " | " + run_id if run_nb > 1 else ""
 
         if freq:
             sampling_rate = len(df["Time"]) / df["Time"].iloc[-1]
@@ -1231,7 +1226,7 @@ def sim_time(run):
                     break
                 # Unsteady simulations
                 elif line.startswith('Time') and not _issteady(run):
-                    stime = float(line.split()[-1][:-1])
+                    stime = np.float64(line.split()[-1][:-1])
                     break
         times_list.append(stime)
     
@@ -1279,11 +1274,10 @@ def recap_sim(runs: str, *,
               geometry_name: str = None) -> None:
 
     run_paths = _find_runs(runs)
-    print(run_paths)
     new_rows = pd.DataFrame()
 
     for run_path in run_paths:
-        run_id = os.path.basename(run_path)
+        run_id = run_path.name
         steady = _issteady(run_id)
         
         # Find the path to the run directory (assuming the run directory is unique)
@@ -1294,7 +1288,7 @@ def recap_sim(runs: str, *,
         turbulence_model = ''
         
         # Get the turbulence model from the "turbulenceProperties" file
-        momentumTransport_path = os.path.join(run_path, "constant", "momentumTransport")
+        momentumTransport_path = run_path / "constant" / "momentumTransport"
         with open(momentumTransport_path, 'r') as f:
             for line in f:
                 if 'model' in line:
@@ -1305,7 +1299,7 @@ def recap_sim(runs: str, *,
         log_files = sorted(_find_logs(run_path))
         
         data_dict = {
-            'Project': [os.path.basename(os.path.dirname(run_path))],
+            'Project': [run_path.parent.name],
             'Run': [run_id],
             'User': [getuser()],
             'Workstation': [gethostname()],
@@ -1336,7 +1330,7 @@ def recap_sim(runs: str, *,
                     else:
                         for line in frb:
                             if line.startswith("Time ="):
-                                data_dict['Simulated Time (s)'] = float(line.split()[-1][:-1])
+                                data_dict['Simulated Time (s)'] = np.float64(line.split()[-1][:-1])
                                 break
         
         data_dict.update({'Date': [date], '# Procs': [n_procs]})
