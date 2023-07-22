@@ -228,7 +228,7 @@ def _convert_numerical_data(df: pd.DataFrame) -> pd.DataFrame:
 
 # * ===================================================================================================
 
-def _files_to_df(file_paths: list, **kwargs) -> pd.DataFrame:
+def files_to_df(file_paths: list, **kwargs) -> pd.DataFrame:
 
     out = _convert_numerical_data(
               _filter_data(

@@ -1,31 +1,9 @@
-import constants as cst
-import importlib
-import matplotlib
-import matplotlib.pyplot as plt
-import numpy as np
-import os
-import pandas as pd
-import re
-import seaborn as sns
-import shutil
-
-from datetime import timedelta
-from file_read_backwards import FileReadBackwards
-
-from functools import partial
-from getpass import getuser
-from openpyxl import load_workbook
-from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
-from openpyxl.utils import get_column_letter
 from pathlib import Path
-from prettytable import PrettyTable
-from scipy.fft import fft, fftfreq
-from socket import gethostname
-from statistics import stdev, mean
-from tqdm import tqdm
 from warnings import warn
 
 import utils.find as find
+import utils.constants as cst
+import utils.pipeline as pl
 
 # * ===================================================================================================
 
@@ -62,7 +40,7 @@ def fetch_run_data(run_path: Path, *,
 
         # ! If wrong path
         if not pp.is_dir():
-            warn(f'No {bred}{error_dir}{reset} directory found.', UserWarning)
+            warn(f'No {cst.bred}{error_dir}{cst.reset} directory found.', UserWarning)
 
         # Get the list of file in a given run and the unique basename(s)
         file_paths = sorted(find.find_files(file_extension, root_dir=pp))
@@ -73,7 +51,7 @@ def fetch_run_data(run_path: Path, *,
             raise ValueError(f"More than one data type selected: {', '.join(bn for bn in basenames)}")
         
         # Yield a DataFrame and the run and postpro dir info
-        df = _files_to_df(file_paths, **kwargs)
+        df = pl.files_to_df(file_paths, **kwargs)
         if not df.empty:
             if file_extension == '.dat':
                 yield {'run_id': run_id, 'pp_dir': pp.name , 'df': df}
