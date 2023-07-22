@@ -1,10 +1,10 @@
-import constants as cst
 import pandas as pd
 import re
 
 from pathlib import Path
 from functools import partial
 
+import utils.constants as cst
 # * ===================================================================================================
 
 def get_labels(database: pd.DataFrame, 
