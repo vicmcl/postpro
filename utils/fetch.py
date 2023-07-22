@@ -7,10 +7,13 @@ import utils.pipeline as pl
 
 # * ===================================================================================================
 
-def fetch_run_data(run_path: Path, *,
-                       specdir: str = None,
-                       probe: str = None,
-                       **kwargs) -> list:
+def fetch_run_data(
+    run_path: Path, 
+    *,
+    specdir: str = None,
+    probe: str = None,
+    **kwargs
+) -> list:
     
     run_id = run_path.name
     file_extension = '.dat'
@@ -62,11 +65,14 @@ def fetch_run_data(run_path: Path, *,
 
 # * ===================================================================================================
 
-def fetch_unit(*, df,
-              csv_df,
-              pp_dir,
-              probe,
-              **kwargs):
+def fetch_unit(
+    *,
+    df,
+    csv_df,
+    pp_dir,
+    probe,
+    **kwargs
+) -> str:
     
     if probe != None:
         if 'unit' in kwargs: unit = kwargs.get("unit")
@@ -90,6 +96,6 @@ def fetch_unit(*, df,
             # The chosen unit for the graph is the first one in the list (skip the Time column)
             unit = [unit_list[i] for i in range(unit_length) if header_list[i] in df.columns][1]
         else:
-            unit = None
+            unit = ""
 
     return unit
