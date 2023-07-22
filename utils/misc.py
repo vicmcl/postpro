@@ -66,14 +66,14 @@ def ncol(handles: list) -> int:
 
 # * ===================================================================================================
 
-def _print_header(run_dirs: list[Path]) -> None:
+def print_header(run_dirs: list[Path]) -> None:
     
     # Check project is unique
     if not len({r.parent.name for r in run_dirs}) == 1:
         raise ValueError("Multiple project directories found.")
     
     # If unique project
-    project = f'{cst.bmag}{run_dirs[0].parent.name}{cst.cst.bcyan}'
+    project = f'{cst.bmag}{run_dirs[0].parent.name}{cst.bcyan}'
     runs_num = [k.name for k in run_dirs] 
     format_runs = f'{cst.bmag}{f"{cst.reset}, {cst.bmag}".join(sorted(runs_num))}{cst.bcyan}'
     title_df = pd.DataFrame({f'{cst.reset}{cst.bold}PROJECT{cst.bcyan}': project,
