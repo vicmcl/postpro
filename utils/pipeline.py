@@ -5,8 +5,10 @@ import re
 
 from tqdm import tqdm
 from warnings import warn
+from pathlib import Path
 
 import utils.find as find
+import utils.constants as cst
 
 # * ===================================================================================================
 
@@ -34,9 +36,9 @@ def _concat_data_files(file_paths: list[Path]) -> tuple:
 
                 # Verbose
                 if 'probes' in fpath.parents:
-                    print(f'Parsing {bmag}probe {fpath.name}{reset} at timestep {bmag}{timestep}{reset}:')
+                    print(f'Parsing {cst.bmag}probe {fpath.name}{cst.reset} at timestep {cst.bmag}{timestep}{cst.reset}:')
                 else:
-                    print(f'Parsing {bmag}{pp_dir}{reset} at timestep {bmag}{timestep}{reset}:')
+                    print(f'Parsing {cst.bmag}{pp_dir}{cst.reset} at timestep {cst.bmag}{timestep}{cst.reset}:')
                 
                 # Set progress bar
                 pbar = tqdm(total=0, unit=' lines')
@@ -53,9 +55,9 @@ def _concat_data_files(file_paths: list[Path]) -> tuple:
         
         # If at least 2 files are concatenated, display their start timestep
         if len(file_paths) > 1:
-            fmt_sep = f"{reset}, {bmag}"
+            fmt_sep = f"{cst.reset}, {cst.bmag}"
             fmt_timesteps = f"{fmt_sep}".join(sorted([str(i) for i in timesteps]))
-            print(f'Concatenated files at timesteps {bmag}{fmt_timesteps}{reset}.')
+            print(f'Concatenated files at timesteps {cst.bmag}{fmt_timesteps}{cst.reset}.')
 
         return data_list, cols
 
@@ -171,18 +173,18 @@ def _filter_data(df: pd.DataFrame, **kwargs) -> pd.DataFrame:
 
         # If only the 'Time' column remains -> the columns specified do not exist
         if len(cols) == 1:
-            raise ValueError(f"{bred}'{','.join(usecols)}'{reset}: column(s) not found.")
+            raise ValueError(f"{cst.bred}'{','.join(usecols)}'{cst.reset}: column(s) not found.")
         
         # If at least one column of data is found
         else:
             # If not all the specified columns are found
             if len(cols) < len(usecols) + 1:
                 cols_not_found = [col for col in df.columns if col not in cols]
-                warn(f"{bred}'{','.join(cols_not_found)}'{reset}: column(s) not found.", UserWarning)
+                warn(f"{cst.bred}'{','.join(cols_not_found)}'{cst.reset}: column(s) not found.", UserWarning)
 
             # Filter the specified columns that are found
             df = df.loc[:, cols]
-            print(f'Columns {bmag}{f"{reset}, {bmag}".join(df.columns[1:])}{reset} selected.')
+            print(f'Columns {cst.bmag}{f"{cst.reset}, {cst.bmag}".join(df.columns[1:])}{cst.reset} selected.')
 
     # If there are iterations to skip at the beginning or the end of the simulation
     if 'skipstart' in kwargs:
