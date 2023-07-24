@@ -29,6 +29,7 @@ import utils.fetch as fch
 import utils.find as fd
 import utils.misc as misc
 import utils.plot as pl
+import utils.classes as cl
 
 # Args for the figures
 matplotlib.rcParams['xtick.major.width'] = 1
@@ -55,6 +56,8 @@ def reload():
     importlib.reload(fch)
     importlib.reload(misc)
     importlib.reload(pl)
+    importlib.reload(cl)
+    
     print('Reloaded.')
 
 # * ===================================================================================================
