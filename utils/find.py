@@ -174,10 +174,10 @@ find_files = partial(find_paths, data_type='file')
 
 # * ===================================================================================================
 
-def find_runs(runs: str, *, root_dir: Path = cst.DEFAULT_DIR, **kwargs) -> list:
+def find_runs(runs: str, *, root_dir: Path = cst.DEFAULT_DIR) -> list:
     
     # Find all the dirs in the root dir
-    all_dirs = find_dirs(runs, root_dir=root_dir, **kwargs)
+    all_dirs = find_dirs(runs, root_dir=root_dir)
     # Keep the dirs containing a 'system' dir and a 'constant' dir
     run_dirs = [d for d in all_dirs if Path(d / "system").is_dir() and Path(d / "constant").is_dir()]
 
