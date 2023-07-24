@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <title>Import a module</title>
+        <style>
+/* From extension vscode.github */
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.vscode-dark img[src$=\#gh-light-mode-only],
+.vscode-light img[src$=\#gh-dark-mode-only] {
+	display: none;
+}
+
+</style>
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex/dist/katex.min.css">
+<link href="https://cdn.jsdelivr.net/npm/katex-copytex@latest/dist/katex-copytex.min.css" rel="stylesheet" type="text/css">
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Microsoft/vscode/extensions/markdown-language-features/media/markdown.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Microsoft/vscode/extensions/markdown-language-features/media/highlight.css">
+<style>
+            body {
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe WPC', 'Segoe UI', system-ui, 'Ubuntu', 'Droid Sans', sans-serif;
+                font-size: 14px;
+                line-height: 1.6;
+            }
+        </style>
+        <style>
+.task-list-item {
+    list-style-type: none;
+}
+
+.task-list-item-checkbox {
+    margin-left: -20px;
+    vertical-align: middle;
+    pointer-events: none;
+}
+</style>
+        
+    </head>
+    <body class="vscode-body vscode-light">
+        <h1 id="import-a-module">Import a module</h1>
+<p>To import the module in a Python console, use:</p>
+<div style="background-color: #F0F0F0;">
+<pre><code class="language-python"><span class="hljs-comment"># Import the module in the script </span>
+<span class="hljs-comment"># and create the &#x27;pp&#x27; alias</span>
+<span class="hljs-keyword">import</span> postpro <span class="hljs-keyword">as</span> pp 
+</code></pre>
+</div>
+<h1 id="arguments">Arguments</h1>
+<p>In Python, there are multiple types of arguments possible when calling a function:</p>
+<ul>
+<li><strong>Positional arguments:</strong> they are passed based on their position in the function call. They are defined without being explicitly named in the function call.</li>
+</ul>
+<p>Example:</p>
+<div style="background-color: #F0F0F0;">
+<pre><code class="language-python"><span class="hljs-comment"># Function using the positional argument &#x27;name&#x27;</span>
+<span class="hljs-keyword">def</span> <span class="hljs-title function_">print_info</span>(<span class="hljs-params">name</span>):
+    <span class="hljs-built_in">print</span>(<span class="hljs-string">&#x27;Name passed: &#x27;</span> + name)
+
+<span class="hljs-comment"># Function call</span>
+print_info(<span class="hljs-string">&#x27;John&#x27;</span>)
+<span class="hljs-meta">&gt;&gt;&gt; </span>Name passed: John
+</code></pre>
+</div>
+<ul>
+<li><strong>Keyword-only arguments:</strong> they can only be specified by their parameter name during a function call. They cannot be passed as a positional argument and must be explicitly assigned using their parameter name. They are called after the * in the function definition.</li>
+</ul>
+<p>Example:</p>
+<div style="background-color: #F0F0F0;">
+<pre><code class="language-python"><span class="hljs-comment"># Function using the positional argument &#x27;name&#x27; </span>
+<span class="hljs-comment"># and the keyword-only argument &#x27;surname&#x27;</span>
+<span class="hljs-keyword">def</span> <span class="hljs-title function_">print_info</span>(<span class="hljs-params">name, *, surname</span>):
+    <span class="hljs-built_in">print</span>(<span class="hljs-string">&#x27;Complete name: &#x27;</span> + name + <span class="hljs-string">&#x27; &#x27;</span> + surname)
+    
+<span class="hljs-comment"># Function call</span>
+print_info(<span class="hljs-string">&#x27;John&#x27;</span>, surname=<span class="hljs-string">&#x27;Doe&#x27;</span>)
+<span class="hljs-meta">&gt;&gt;&gt; </span>Complete name: John Doe
+</code></pre>
+</div>
+<ul>
+<li><strong>Kwargs:</strong> placeholder name for <strong>optional</strong> keyword arguments passed in the function call. They are represented by **kwargs in the function definition.</li>
+</ul>
+<p>Example:</p>
+<div style="background-color: #F0F0F0;">
+<pre><code class="language-python"><span class="hljs-comment"># Function using the positional argument &#x27;name&#x27;, </span>
+<span class="hljs-comment"># the keyword-only argument &#x27;surname&#x27; </span>
+<span class="hljs-comment"># and kwargs to print additional information</span>
+<span class="hljs-keyword">def</span> <span class="hljs-title function_">print_info</span>(<span class="hljs-params">name, *, surname, **kwargs</span>):
+    <span class="hljs-built_in">print</span>(<span class="hljs-string">&#x27;Complete name: &#x27;</span> + name + <span class="hljs-string">&#x27; &#x27;</span> + surname)
+    <span class="hljs-keyword">for</span> k <span class="hljs-keyword">in</span> kwargs.keys():
+        <span class="hljs-built_in">print</span>(k + <span class="hljs-string">&#x27;: &#x27;</span> + kwargs.get(k))
+
+<span class="hljs-comment"># Function call</span>
+print_info(<span class="hljs-string">&#x27;John&#x27;</span>, surname=<span class="hljs-string">&#x27;Doe&#x27;</span>, Age=<span class="hljs-string">&#x27;85&#x27;</span>,
+           Nationality=<span class="hljs-string">&#x27;chinese&#x27;</span>, Birthday=<span class="hljs-string">&#x27;25/12&#x27;</span>)
+<span class="hljs-meta">&gt;&gt;&gt; </span>Complete name: John Doe
+    Age: <span class="hljs-number">85</span>
+    Nationality: chinese
+    Birthday: <span class="hljs-number">25</span>/<span class="hljs-number">12</span>
+</code></pre>
+</div>
+<p>The functions of the <strong>postpro</strong> module use these 3 types of arguments to work correctly. They should be written in the following order:</p>
+<pre><code class="language-python"><span class="hljs-comment"># Generic function call using positional arguments, keyword-only arguments and kwargs </span>
+func(positional args, keyword-only args, kwargs)
+</code></pre>
+</div>
+<h1 id="regex">Regex</h1>
+<p>Some arguments of the functions in the <strong>postpro</strong> module can be written as a <em>regular expression</em> (regex) to match a particular pattern when looking for a directory or a file name.</p>
+<p>Useful regex syntax:</p>
+<table>
+<thead>
+<tr>
+<th style="text-align:left">Syntax</th>
+<th style="text-align:left">Description</th>
+<th style="text-align:left">Example pattern</th>
+<th style="text-align:left">Examples match</th>
+<th style="text-align:left">Examples non-match</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left">$</td>
+<td style="text-align:left">Match end of line</td>
+<td style="text-align:left">'01$'</td>
+<td style="text-align:left">run0<strong>01</strong> run2<strong>01</strong></td>
+<td style="text-align:left">run011</td>
+</tr>
+<tr>
+<td style="text-align:left">^</td>
+<td style="text-align:left">Match start of line</td>
+<td style="text-align:left">'^force'</td>
+<td style="text-align:left"><strong>force</strong>s <strong>force</strong>Coeffs</td>
+<td style="text-align:left">RAD_forces</td>
+</tr>
+<tr>
+<td style="text-align:left">.*</td>
+<td style="text-align:left">Match any character(s)</td>
+<td style="text-align:left">'l.*'</td>
+<td style="text-align:left">C<strong>l</strong> C<strong>l(f)</strong></td>
+<td style="text-align:left">Cd</td>
+</tr>
+<tr>
+<td style="text-align:left">[xy]</td>
+<td style="text-align:left">Match at least one of the bracketed characters</td>
+<td style="text-align:left">'[234]'</td>
+<td style="text-align:left">run00<strong>2</strong> run0<strong>34</strong></td>
+<td style="text-align:left">run005</td>
+</tr>
+<tr>
+<td style="text-align:left">x|y</td>
+<td style="text-align:left">Match at least one of the groups of characters</td>
+<td style="text-align:left">'56|78'</td>
+<td style="text-align:left">run0<strong>56</strong> run<strong>78</strong>0</td>
+<td style="text-align:left">run067</td>
+</tr>
+</tbody>
+</table>
+<p>The arguments compatible with regex are <em>run</em>, <em>specdir</em>, <em>probe</em> and <em>usecols</em>.</p>
+
+        <script async src="https://cdn.jsdelivr.net/npm/katex-copytex@latest/dist/katex-copytex.min.js"></script>
+        
+    </body>
+    </html>
